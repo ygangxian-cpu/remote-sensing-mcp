@@ -7,7 +7,7 @@ Remote MCP gateway for the LST downscaling workflow.
 - **Vercel**: lightweight MCP/API gateway.
 - **GitHub Actions**: heavy ELITE FY-4A processing.
 - **GitHub repository `data/`**: persistent China-area ELITE hourly cache.
-- **Google Earth Engine**: authenticated ERA5-Land acquisition and optional dataset discovery/export.
+- **Google Earth Engine**: authenticated ERA5-Land, MODIS and Landsat acquisition plus optional dataset discovery/export.
 
 ## ELITE repository cache
 
@@ -85,12 +85,12 @@ data/era5_land/v1/
 
 The cache is ROI-specific rather than China-wide because ERA5-Land is coarse (~0.1° / 11 km) and repeated ROI downloads are small. Repeating the same ROI and hour reuses the repository file directly.
 
-GitHub Actions requires:
+GitHub Actions uses the existing Earth Engine OAuth credential:
 
-- repository secret `EE_SERVICE_ACCOUNT_JSON_BASE64`
-- optional repository variable `EE_PROJECT` (if omitted, the service-account project is used)
+- repository secret `EE_USER_CREDENTIALS_JSON_BASE64`
+- repository variable `EE_PROJECT=ee-ygangxian`
 
-The worker does **not** require a GCS bucket.
+A service account remains an optional future fallback. No GCS bucket is required.
 
 MCP tools:
 
@@ -100,6 +100,80 @@ MCP tools:
 - `era5_job_status`
 
 One job may request up to 384 hours (16 days).
+
+
+## MODIS Terra/Aqua daily LST
+
+Datasets:
+
+- `MODIS/061/MOD11A1` (Terra)
+- `MODIS/061/MYD11A1` (Aqua)
+
+Repository cache:
+
+```text
+data/modis_lst/v1/<region>-<bbox_hash>/YYYY/MM/DD/
+├── MOD11A1_YYYYMMDD_QC.tif
+└── MYD11A1_YYYYMMDD_QC.tif
+```
+
+Each file contains:
+
+- `LST_DAY_C`
+- `LST_NIGHT_C`
+- `DAY_VIEW_TIME_LOCAL_H`
+- `NIGHT_VIEW_TIME_LOCAL_H`
+
+QC rule:
+
+```text
+bits 0-1 <= 1
+bits 2-3 == 0
+bits 6-7 <= 2
+```
+
+LST conversion: `DN * 0.02 - 273.15`.
+
+MCP tools:
+
+- `modis_lst_schema`
+- `submit_modis_lst_job`
+- `modis_job_status`
+
+## Landsat 8/9 Collection 2 Level 2
+
+Datasets:
+
+- `LANDSAT/LC08/C02/T1_L2`
+- `LANDSAT/LC09/C02/T1_L2`
+
+Repository cache:
+
+```text
+data/landsat_c2_l2/v1/<region>-<bbox_hash>/YYYY/MM/DD/
+└── <LANDSAT_PRODUCT_ID>_L2_QC.tif
+```
+
+Each cached scene contains:
+
+- `LST_C`
+- `ST_QA_K`
+- `SR_B2` .. `SR_B7`
+
+Conversions:
+
+```text
+LST_C = ST_B10 * 0.00341802 + 149.0 - 273.15
+SR    = SR_Bx * 0.0000275 - 0.2
+```
+
+Masking excludes QA_PIXEL fill, dilated cloud, cirrus, cloud, cloud shadow, snow and water, and also masks radiometric saturation.
+
+MCP tools:
+
+- `landsat_schema`
+- `submit_landsat_job`
+- `landsat_job_status`
 
 ## MCP tools
 
@@ -143,7 +217,7 @@ Earth Engine:
 - optional `GEE_GCS_BUCKET` only for Earth Engine exports
 - `REMOTE_MCP_TOKEN`
 
-No GCS bucket is required for ELITE or ERA5-Land repository caching.
+No GCS bucket is required for ELITE, ERA5-Land, MODIS or Landsat repository caching.
 
 ## Security
 
