@@ -28,8 +28,13 @@ SAT_HEIGHT = 35785863.0
 OUT_RES = 0.035932611365
 
 PATTERNS = [
+    # YYYYMMDDHHMMSS — common FY-4A product timestamp form
+    re.compile(r"(?<!\d)(20\d{2})(\d{2})(\d{2})[_-]?(\d{2})(\d{2})(\d{2})(?!\d)"),
+    # YYYYMMDDHHMM
     re.compile(r"(?<!\d)(20\d{2})(\d{2})(\d{2})[_-]?(\d{2})(\d{2})(?!\d)"),
+    # YYYYMMDDHH
     re.compile(r"(?<!\d)(20\d{2})(\d{2})(\d{2})[_-]?(\d{2})(?!\d)"),
+    # YYYYMMDD
     re.compile(r"(?<!\d)(20\d{2})(\d{2})(\d{2})(?!\d)"),
 ]
 
@@ -42,6 +47,8 @@ def parse_ts(name: str):
             continue
         p = [int(x) for x in m.groups()]
         try:
+            if len(p) == 6:
+                return datetime(*p)
             if len(p) == 5:
                 return datetime(*p)
             if len(p) == 4:
@@ -259,6 +266,9 @@ def main():
     hdfs = root / "hdf"
     result_dir = root / "elite"
     converted = []
+    archive_samples = []
+    parsed_samples = []
+    candidate_count = 0
 
     for ym in months(start, end):
         payload = record(int(ym[:4]))
@@ -269,7 +279,12 @@ def main():
             for info in zf.infolist():
                 if info.is_dir() or Path(info.filename).suffix.lower() not in {".hdf", ".h5", ".hdf5", ".he5"}:
                     continue
+                candidate_count += 1
+                if len(archive_samples) < 30:
+                    archive_samples.append(info.filename)
                 ts = parse_ts(info.filename)
+                if ts is not None and len(parsed_samples) < 30:
+                    parsed_samples.append({"name": info.filename, "timestamp": ts.isoformat()})
                 if ts is None or not (start <= ts < end):
                     continue
                 hdf = hdfs / Path(info.filename).name
@@ -293,11 +308,21 @@ def main():
                 "output_unit": args.output_unit,
                 "count": len(converted),
                 "files": converted,
+                "candidate_hdf_count": candidate_count,
+                "archive_filename_samples": archive_samples,
+                "parsed_timestamp_samples": parsed_samples,
             },
             indent=2,
         ),
         encoding="utf-8",
     )
+
+    if not converted:
+        raise RuntimeError(
+            "ELITE archive was downloaded but produced zero GeoTIFFs. "
+            f"candidate_hdf_count={candidate_count}; "
+            f"sample_names={archive_samples[:5]}"
+        )
 
 
 if __name__ == "__main__":
