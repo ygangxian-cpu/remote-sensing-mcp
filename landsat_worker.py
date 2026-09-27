@@ -92,9 +92,12 @@ def mask_and_scale(image):
     stqa = image.select("ST_QA").multiply(0.01).rename("ST_QA_K")
     sr = image.select(["SR_B2","SR_B3","SR_B4","SR_B5","SR_B6","SR_B7"]).multiply(0.0000275).add(-0.2)
 
-    return ee.Image.cat([lst, stqa, sr]).updateMask(mask).toFloat().copyProperties(
-        image,
-        ["system:time_start","LANDSAT_PRODUCT_ID","LANDSAT_SCENE_ID","SPACECRAFT_ID","CLOUD_COVER","WRS_PATH","WRS_ROW"]
+    prepared = ee.Image.cat([lst, stqa, sr]).updateMask(mask).toFloat()
+    return ee.Image(
+        prepared.copyProperties(
+            image,
+            ["system:time_start","LANDSAT_PRODUCT_ID","LANDSAT_SCENE_ID","SPACECRAFT_ID","CLOUD_COVER","WRS_PATH","WRS_ROW"],
+        )
     )
 
 
