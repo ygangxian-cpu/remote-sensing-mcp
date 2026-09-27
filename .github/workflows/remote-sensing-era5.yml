@@ -1,5 +1,5 @@
 name: Remote Sensing ERA5-Land Worker
-run-name: "ERA5-Land ${{ inputs.job_key || format('era5-smoke3-{0}', github.run_id) }}"
+run-name: "ERA5-Land ${{ inputs.job_key }}"
 
 on:
   workflow_dispatch:
@@ -28,11 +28,6 @@ on:
 
 
 
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/era5-smoke3-trigger"
 
 permissions:
   contents: write
@@ -49,11 +44,6 @@ jobs:
       EE_PROJECT: "${{ vars.EE_PROJECT }}"
       EE_USER_CREDENTIALS_JSON_BASE64: "${{ secrets.EE_USER_CREDENTIALS_JSON_BASE64 }}"
       EE_SERVICE_ACCOUNT_JSON_BASE64: "${{ secrets.EE_SERVICE_ACCOUNT_JSON_BASE64 }}"
-      JOB_KEY: "${{ inputs.job_key || format('era5-smoke3-{0}', github.run_id) }}"
-      START_DATE: "${{ inputs.start_date || '2019-09-24T00:00:00' }}"
-      END_DATE: "${{ inputs.end_date || '2019-09-24T01:00:00' }}"
-      BBOX: "${{ inputs.bbox || '100.1,38.7667,100.6,39.0667' }}"
-      REGION_NAME: "${{ inputs.region_name || 'zhangye' }}"
 
     steps:
       - name: Checkout
@@ -88,10 +78,10 @@ jobs:
       - name: Fetch/reuse ERA5-Land hourly ROI cache
         run: >-
           python era5_worker.py
-          --start-date "$START_DATE"
-          --end-date "$END_DATE"
-          --bbox "$BBOX"
-          --region-name "$REGION_NAME"
+          --start-date '${{ inputs.start_date }}'
+          --end-date '${{ inputs.end_date }}'
+          --bbox '${{ inputs.bbox }}'
+          --region-name '${{ inputs.region_name }}'
 
       - name: Commit new ERA5-Land cache
         run: |
@@ -99,7 +89,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add data/era5_land data/metadata/era5-land-index.json
-            git commit -m "data: cache ERA5-Land $REGION_NAME $START_DATE [skip vercel]"
+            git commit -m "data: cache ERA5-Land ${{ inputs.region_name }} ${{ inputs.start_date }} [skip vercel]"
             git pull --rebase origin main
             git push origin HEAD:main
           else
@@ -114,7 +104,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: "${{ env.JOB_KEY }}"
+          name: "${{ inputs.job_key }}"
           path: |
             output/era5_land/**/*.tif
             output/result.json
