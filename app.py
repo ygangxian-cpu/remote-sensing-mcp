@@ -397,6 +397,7 @@ def service_status() -> dict[str, Any]:
         "landsat_cache_backend": "github_repository_roi",
         "landsat_cache_version": "v2",
         "landsat_quality_reporting": True,
+        "qa_preserving_downloads": True,
         "scaling_factors_cache_backend": "github_repository_roi",
         "job_result_download_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
         "elite_persistent_storage_configured": True,
