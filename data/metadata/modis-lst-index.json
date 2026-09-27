@@ -10,11 +10,41 @@
         39.0667
       ],
       "files": {
+        "2019-09-15:aqua": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/15/MYD11A1_20190915_QC.tif",
+        "2019-09-15:terra": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/15/MOD11A1_20190915_QC.tif",
+        "2019-09-16:aqua": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/16/MYD11A1_20190916_QC.tif",
+        "2019-09-16:terra": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/16/MOD11A1_20190916_QC.tif",
+        "2019-09-17:aqua": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/17/MYD11A1_20190917_QC.tif",
+        "2019-09-17:terra": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/17/MOD11A1_20190917_QC.tif",
+        "2019-09-18:aqua": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/18/MYD11A1_20190918_QC.tif",
+        "2019-09-18:terra": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/18/MOD11A1_20190918_QC.tif",
+        "2019-09-19:aqua": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/19/MYD11A1_20190919_QC.tif",
+        "2019-09-19:terra": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/19/MOD11A1_20190919_QC.tif",
+        "2019-09-20:aqua": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/20/MYD11A1_20190920_QC.tif",
+        "2019-09-20:terra": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/20/MOD11A1_20190920_QC.tif",
+        "2019-09-21:aqua": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/21/MYD11A1_20190921_QC.tif",
+        "2019-09-21:terra": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/21/MOD11A1_20190921_QC.tif",
+        "2019-09-22:aqua": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/22/MYD11A1_20190922_QC.tif",
+        "2019-09-22:terra": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/22/MOD11A1_20190922_QC.tif",
+        "2019-09-23:aqua": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/23/MYD11A1_20190923_QC.tif",
+        "2019-09-23:terra": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/23/MOD11A1_20190923_QC.tif",
         "2019-09-24:aqua": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/24/MYD11A1_20190924_QC.tif",
-        "2019-09-24:terra": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/24/MOD11A1_20190924_QC.tif"
+        "2019-09-24:terra": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/24/MOD11A1_20190924_QC.tif",
+        "2019-09-25:aqua": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/25/MYD11A1_20190925_QC.tif",
+        "2019-09-25:terra": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/25/MOD11A1_20190925_QC.tif",
+        "2019-09-26:aqua": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/26/MYD11A1_20190926_QC.tif",
+        "2019-09-26:terra": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/26/MOD11A1_20190926_QC.tif",
+        "2019-09-27:aqua": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/27/MYD11A1_20190927_QC.tif",
+        "2019-09-27:terra": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/27/MOD11A1_20190927_QC.tif",
+        "2019-09-28:aqua": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/28/MYD11A1_20190928_QC.tif",
+        "2019-09-28:terra": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/28/MOD11A1_20190928_QC.tif",
+        "2019-09-29:aqua": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/29/MYD11A1_20190929_QC.tif",
+        "2019-09-29:terra": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/29/MOD11A1_20190929_QC.tif",
+        "2019-09-30:aqua": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/30/MYD11A1_20190930_QC.tif",
+        "2019-09-30:terra": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/30/MOD11A1_20190930_QC.tif"
       },
       "region_name": "zhangye"
     }
   },
-  "updated_at": "2026-09-27T07:48:23.668918Z"
+  "updated_at": "2026-09-27T07:55:03.884521Z"
 }
