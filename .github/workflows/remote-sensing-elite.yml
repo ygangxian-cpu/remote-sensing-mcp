@@ -1,0 +1,72 @@
+name: Remote Sensing ELITE Worker
+run-name: "ELITE ${{ inputs.job_key }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_key:
+        description: Correlation ID used by the MCP gateway
+        required: true
+        type: string
+      start_date:
+        description: Inclusive start date/time (ISO)
+        required: true
+        type: string
+      end_date:
+        description: Exclusive end date/time (ISO)
+        required: true
+        type: string
+      bbox:
+        description: xmin,ymin,xmax,ymax in EPSG:4326
+        required: true
+        type: string
+      output_unit:
+        description: celsius or kelvin
+        required: true
+        default: celsius
+        type: choice
+        options:
+          - celsius
+          - kelvin
+
+permissions:
+  contents: read
+
+jobs:
+  elite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ELITE worker dependencies
+        run: pip install requests numpy h5py rasterio affine
+
+      - name: Download, geolocate and crop ELITE FY-4A LST
+        run: >-
+          python worker.py
+          --start-date '${{ inputs.start_date }}'
+          --end-date '${{ inputs.end_date }}'
+          --bbox '${{ inputs.bbox }}'
+          --output-unit '${{ inputs.output_unit }}'
+
+      - name: Remove cache before artifact upload
+        if: always()
+        run: rm -rf output/cache output/hdf
+
+      - name: Upload clipped GeoTIFFs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "${{ inputs.job_key }}"
+          path: |
+            output/elite/**/*.tif
+            output/result.json
+          if-no-files-found: warn
+          retention-days: 1
