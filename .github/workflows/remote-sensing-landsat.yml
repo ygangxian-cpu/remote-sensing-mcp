@@ -1,0 +1,108 @@
+name: Remote Sensing Landsat Worker
+run-name: "Landsat ${{ inputs.job_key }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_key:
+        required: true
+        type: string
+      start_date:
+        required: true
+        type: string
+      end_date:
+        required: true
+        type: string
+      bbox:
+        description: xmin,ymin,xmax,ymax EPSG:4326
+        required: true
+        type: string
+      region_name:
+        required: false
+        default: ""
+        type: string
+      satellites:
+        required: false
+        default: "L8,L9"
+        type: string
+      cloud_cover_max:
+        required: false
+        default: "80"
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: landsat-repository-cache
+  cancel-in-progress: false
+
+jobs:
+  landsat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      EE_PROJECT: "${{ vars.EE_PROJECT || 'ee-ygangxian' }}"
+      EE_USER_CREDENTIALS_JSON_BASE64: "${{ secrets.EE_USER_CREDENTIALS_JSON_BASE64 }}"
+      EE_SERVICE_ACCOUNT_JSON_BASE64: "${{ secrets.EE_SERVICE_ACCOUNT_JSON_BASE64 }}"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Restore Earth Engine credentials
+        shell: bash
+        run: |
+          if [ -n "$EE_USER_CREDENTIALS_JSON_BASE64" ]; then
+            mkdir -p "$HOME/.config/earthengine"
+            printf '%s' "$EE_USER_CREDENTIALS_JSON_BASE64" | base64 --decode > "$HOME/.config/earthengine/credentials"
+            chmod 600 "$HOME/.config/earthengine/credentials"
+          elif [ -z "$EE_SERVICE_ACCOUNT_JSON_BASE64" ]; then
+            echo "::error::Missing Earth Engine credentials"
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install earthengine-api google-auth requests numpy rasterio
+
+      - name: Fetch/reuse Landsat C2 L2
+        run: >-
+          python landsat_worker.py
+          --start-date '${{ inputs.start_date }}'
+          --end-date '${{ inputs.end_date }}'
+          --bbox '${{ inputs.bbox }}'
+          --region-name '${{ inputs.region_name }}'
+          --satellites '${{ inputs.satellites }}'
+          --cloud-cover-max '${{ inputs.cloud_cover_max }}'
+
+      - name: Commit new Landsat cache
+        run: |
+          if [ -n "$(git status --porcelain -- data/landsat_c2_l2 data/metadata/landsat-index.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/landsat_c2_l2 data/metadata/landsat-index.json
+            git commit -m "data: cache Landsat ${{ inputs.region_name }} ${{ inputs.start_date }} [skip vercel]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf output/work
+
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "${{ inputs.job_key }}"
+          path: |
+            output/landsat/**/*.tif
+            output/result.json
+          if-no-files-found: warn
+          retention-days: 1
