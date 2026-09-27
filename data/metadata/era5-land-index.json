@@ -1,0 +1,57 @@
+{
+  "bands": [
+    {
+      "name": "T2_C",
+      "source": "temperature_2m",
+      "unit": "degC"
+    },
+    {
+      "name": "TD2_C",
+      "source": "dewpoint_temperature_2m",
+      "unit": "degC"
+    },
+    {
+      "name": "U10_MPS",
+      "source": "u_component_of_wind_10m",
+      "unit": "m s-1"
+    },
+    {
+      "name": "V10_MPS",
+      "source": "v_component_of_wind_10m",
+      "unit": "m s-1"
+    },
+    {
+      "name": "PSFC_PA",
+      "source": "surface_pressure",
+      "unit": "Pa"
+    },
+    {
+      "name": "SWDOWN_WM2",
+      "source": "surface_solar_radiation_downwards_hourly",
+      "unit": "W m-2"
+    },
+    {
+      "name": "GLW_WM2",
+      "source": "surface_thermal_radiation_downwards_hourly",
+      "unit": "W m-2"
+    }
+  ],
+  "cache_version": "v1",
+  "dataset": "ECMWF/ERA5_LAND/HOURLY",
+  "product": "ERA5-Land hourly",
+  "regions": {
+    "zhangye-c6c86510ae": {
+      "bbox": [
+        100.1,
+        38.7667,
+        100.6,
+        39.0667
+      ],
+      "hours": {
+        "2019-09-24T00:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_0000_UTC.tif"
+      },
+      "region_name": "zhangye"
+    }
+  },
+  "updated_at": "2026-09-27T07:40:51.966537Z"
+}
