@@ -7,7 +7,7 @@ Remote MCP gateway for the LST downscaling workflow.
 - **Vercel**: lightweight MCP/API gateway.
 - **GitHub Actions**: heavy ELITE FY-4A processing.
 - **GitHub repository `data/`**: persistent China-area ELITE hourly cache.
-- **Google Earth Engine**: optional authenticated discovery/export.
+- **Google Earth Engine**: authenticated ERA5-Land acquisition and optional dataset discovery/export.
 
 ## ELITE repository cache
 
@@ -55,6 +55,52 @@ For each requested hour:
 
 The workflow is serialized with an `elite-china-cache` concurrency group to avoid simultaneous cache writers.
 
+
+## ERA5-Land hourly ROI cache
+
+ERA5-Land is acquired from Google Earth Engine by a dedicated GitHub Actions worker.
+
+Canonical bands:
+
+| Output band | GEE source band | Unit |
+| --- | --- | --- |
+| `T2_C` | `temperature_2m` | °C |
+| `TD2_C` | `dewpoint_temperature_2m` | °C |
+| `U10_MPS` | `u_component_of_wind_10m` | m/s |
+| `V10_MPS` | `v_component_of_wind_10m` | m/s |
+| `PSFC_PA` | `surface_pressure` | Pa |
+| `SWDOWN_WM2` | `surface_solar_radiation_downwards_hourly` | W/m² |
+| `GLW_WM2` | `surface_thermal_radiation_downwards_hourly` | W/m² |
+
+Temperature is converted from Kelvin to Celsius. Hourly accumulated shortwave and longwave radiation are divided by 3600 to obtain W/m².
+
+Persistent cache layout:
+
+```text
+data/era5_land/v1/
+└── <region>-<bbox_hash>/
+    └── YYYY/MM/DD/
+        └── ERA5LAND_YYYYMMDD_HHMM_UTC.tif
+```
+
+The cache is ROI-specific rather than China-wide because ERA5-Land is coarse (~0.1° / 11 km) and repeated ROI downloads are small. Repeating the same ROI and hour reuses the repository file directly.
+
+GitHub Actions requires:
+
+- repository secret `EE_SERVICE_ACCOUNT_JSON_BASE64`
+- optional repository variable `EE_PROJECT` (if omitted, the service-account project is used)
+
+The worker does **not** require a GCS bucket.
+
+MCP tools:
+
+- `era5_land_schema`
+- `era5_storage_layout`
+- `submit_era5_land_job`
+- `era5_job_status`
+
+One job may request up to 384 hours (16 days).
+
 ## MCP tools
 
 Read-only tools:
@@ -97,7 +143,7 @@ Earth Engine:
 - optional `GEE_GCS_BUCKET` only for Earth Engine exports
 - `REMOTE_MCP_TOKEN`
 
-No GCS bucket is required for ELITE repository caching.
+No GCS bucket is required for ELITE or ERA5-Land repository caching.
 
 ## Security
 
