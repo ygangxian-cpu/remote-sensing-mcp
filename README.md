@@ -112,10 +112,12 @@ Datasets:
 Repository cache:
 
 ```text
-data/modis_lst/v1/<region>-<bbox_hash>/YYYY/MM/DD/
-├── MOD11A1_YYYYMMDD_QC.tif
-└── MYD11A1_YYYYMMDD_QC.tif
+data/modis_lst/v2/<region>-<bbox_hash>/YYYY/MM/DD/
+├── MOD11A1_YYYYMMDD_LST_QA.tif
+└── MYD11A1_YYYYMMDD_LST_QA.tif
 ```
+
+The v2 downloader is **QA-preserving**: it keeps the product's native LST availability and does not apply the research QC mask during acquisition.
 
 Each file contains:
 
@@ -123,8 +125,12 @@ Each file contains:
 - `LST_NIGHT_C`
 - `DAY_VIEW_TIME_LOCAL_H`
 - `NIGHT_VIEW_TIME_LOCAL_H`
+- `QC_DAY`
+- `QC_NIGHT`
 
-QC rule:
+LST conversion: `DN * 0.02 - 273.15`.
+
+The previous strict research rule is retained as a **diagnostic/recommended downstream rule**, not a destructive download mask:
 
 ```text
 bits 0-1 <= 1
@@ -132,7 +138,7 @@ bits 2-3 == 0
 bits 6-7 <= 2
 ```
 
-LST conversion: `DN * 0.02 - 273.15`.
+For each day/platform, `result.json` reports native LST coverage, strict-QC coverage, strict retention of native pixels, mandatory-QA class counts, data-quality class counts and LST-error classes. This makes it possible to distinguish true product gaps/cloud contamination from pixels removed only by a later research QA choice.
 
 MCP tools:
 
@@ -150,15 +156,19 @@ Datasets:
 Repository cache:
 
 ```text
-data/landsat_c2_l2/v1/<region>-<bbox_hash>/YYYY/MM/DD/
-└── <LANDSAT_PRODUCT_ID>_L2_QC.tif
+data/landsat_c2_l2/v2/<region>-<bbox_hash>/YYYY/MM/DD/
+└── <LANDSAT_PRODUCT_ID>_L2_RAW_QA.tif
 ```
+
+The v2 downloader preserves native product availability and QA instead of permanently masking research-quality pixels at download time.
 
 Each cached scene contains:
 
 - `LST_C`
 - `ST_QA_K`
 - `SR_B2` .. `SR_B7`
+- `QA_PIXEL`
+- `QA_RADSAT`
 
 Conversions:
 
@@ -167,7 +177,15 @@ LST_C = ST_B10 * 0.00341802 + 149.0 - 273.15
 SR    = SR_Bx * 0.0000275 - 0.2
 ```
 
-Masking excludes QA_PIXEL fill, dilated cloud, cirrus, cloud, cloud shadow, snow and water, and also masks radiometric saturation.
+No additional QA mask is applied during download. The quality report in `result.json` separately records native LST coverage, clear-LST coverage, QA_PIXEL bit counts, water fraction, radiometric saturation and clear/unsaturated SR coverage.
+
+Recommended clear-pixel logic for downstream experiments is:
+
+```text
+QA_PIXEL bits 0,1,2,3,4,5 == 0
+```
+
+Water (bit 7) is preserved. `QA_RADSAT` is preserved and reported separately rather than being used as a blanket mask that can erase an otherwise valid LST pixel because a reflective band is saturated.
 
 MCP tools:
 
