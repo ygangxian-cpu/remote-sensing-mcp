@@ -39,6 +39,7 @@ jobs:
     timeout-minutes: 180
     env:
       EE_PROJECT: "${{ vars.EE_PROJECT }}"
+      EE_USER_CREDENTIALS_JSON_BASE64: "${{ secrets.EE_USER_CREDENTIALS_JSON_BASE64 }}"
       EE_SERVICE_ACCOUNT_JSON_BASE64: "${{ secrets.EE_SERVICE_ACCOUNT_JSON_BASE64 }}"
 
     steps:
@@ -48,11 +49,18 @@ jobs:
           fetch-depth: 1
           persist-credentials: true
 
-      - name: Validate Earth Engine credentials
+      - name: Restore Earth Engine user credentials
         shell: bash
         run: |
-          if [ -z "$EE_SERVICE_ACCOUNT_JSON_BASE64" ]; then
-            echo "::error::Missing repository Actions secret EE_SERVICE_ACCOUNT_JSON_BASE64"
+          if [ -n "$EE_USER_CREDENTIALS_JSON_BASE64" ]; then
+            mkdir -p "$HOME/.config/earthengine"
+            printf '%s' "$EE_USER_CREDENTIALS_JSON_BASE64" | base64 --decode > "$HOME/.config/earthengine/credentials"
+            chmod 600 "$HOME/.config/earthengine/credentials"
+            echo "Using Earth Engine user OAuth credentials."
+          elif [ -n "$EE_SERVICE_ACCOUNT_JSON_BASE64" ]; then
+            echo "Using Earth Engine service-account credentials."
+          else
+            echo "::error::Missing EE_USER_CREDENTIALS_JSON_BASE64 or EE_SERVICE_ACCOUNT_JSON_BASE64"
             exit 1
           fi
 
