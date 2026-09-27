@@ -1,7 +1,7 @@
 [project]
 name = "remote-sensing-mcp"
-version = "0.5.0"
-description = "Remote MCP gateway for Earth Engine and repository-cached ELITE FY-4A LST workflows."
+version = "0.6.0"
+description = "Remote MCP gateway for repository-cached ELITE FY-4A and ERA5-Land workflows."
 requires-python = ">=3.12"
 dependencies = [
   "mcp[cli]>=2.0,<3",
