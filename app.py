@@ -170,7 +170,7 @@ def _months(start_date: str, end_date: str) -> list[str]:
 
 
 def _github_config() -> tuple[str, str, str, str]:
-    repo = os.getenv("GITHUB_WORKFLOW_REPOSITORY", "yuyan3616/first-repo")
+    repo = os.getenv("GITHUB_WORKFLOW_REPOSITORY", "ygangxian-cpu/remote-sensing-mcp")
     workflow = os.getenv("GITHUB_WORKFLOW_ID", "remote-sensing-elite.yml")
     ref = os.getenv("GITHUB_WORKFLOW_REF", "main")
     token = os.getenv("GITHUB_WORKFLOW_TOKEN", "")
