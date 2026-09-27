@@ -1,0 +1,62 @@
+name: Temporary QA v2 Smoke Test
+run-name: "QA v2 smoke"
+
+on:
+  push:
+    paths:
+      - ".github/workflows/qa-v2-smoke.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      EE_PROJECT: "${{ vars.EE_PROJECT || 'ee-ygangxian' }}"
+      EE_USER_CREDENTIALS_JSON_BASE64: "${{ secrets.EE_USER_CREDENTIALS_JSON_BASE64 }}"
+      EE_SERVICE_ACCOUNT_JSON_BASE64: "${{ secrets.EE_SERVICE_ACCOUNT_JSON_BASE64 }}"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore Earth Engine credentials
+        shell: bash
+        run: |
+          if [ -n "$EE_USER_CREDENTIALS_JSON_BASE64" ]; then
+            mkdir -p "$HOME/.config/earthengine"
+            printf '%s' "$EE_USER_CREDENTIALS_JSON_BASE64" | base64 --decode > "$HOME/.config/earthengine/credentials"
+            chmod 600 "$HOME/.config/earthengine/credentials"
+          elif [ -z "$EE_SERVICE_ACCOUNT_JSON_BASE64" ]; then
+            echo "::error::Missing Earth Engine credentials"
+            exit 1
+          fi
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install earthengine-api google-auth requests numpy rasterio
+      - name: Syntax check
+        run: python -m py_compile modis_worker.py landsat_worker.py
+      - name: MODIS Beijing smoke
+        run: |
+          python modis_worker.py             --start-date 2019-09-13             --end-date 2019-09-14             --bbox '115.4,39.4,117.5,41.1'             --region-name beijing-v2-smoke             --platforms terra
+          cp output/result.json /tmp/modis-result.json
+          rm -rf output
+      - name: Landsat Zhangye smoke
+        run: |
+          python landsat_worker.py             --start-date 2019-09-24             --end-date 2019-09-25             --bbox '100.1,38.7667,100.6,39.0667'             --region-name zhangye-v2-smoke             --satellites L8             --cloud-cover-max 20
+          cp output/result.json /tmp/landsat-result.json
+      - name: Print quality summaries
+        run: |
+          echo "=== MODIS ==="
+          cat /tmp/modis-result.json
+          echo "=== LANDSAT ==="
+          cat /tmp/landsat-result.json
+      - name: Upload smoke results
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-v2-smoke-results
+          path: |
+            /tmp/modis-result.json
+            /tmp/landsat-result.json
+          retention-days: 1
