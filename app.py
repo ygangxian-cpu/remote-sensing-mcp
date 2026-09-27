@@ -45,8 +45,11 @@ DATASETS = {
 mcp = MCPServer(
     "Remote Sensing MCP",
     instructions=(
-        "Remote-sensing data gateway for public ELITE FY-4A catalog/planning and authenticated "
-        "Google Earth Engine discovery/export. Large ELITE downloads are delegated to GitHub Actions."
+        "Remote-sensing data gateway for ELITE FY-4A, ERA5-Land, MODIS, Landsat and scaling factors. "
+        "Heavy downloads are delegated to GitHub Actions. When the user asks to download data, do not "
+        "stop after returning a job id or completed status: after the job succeeds, call get_job_result "
+        "to obtain a short-lived artifact URL, then use the client environment to save the ZIP to the "
+        "user's requested local directory. The remote MCP server itself cannot write to the client's filesystem."
     ),
 )
 
@@ -234,6 +237,144 @@ def _github_scaling_config() -> tuple[str, str, str, str]:
     return repo, workflow, ref, token
 
 
+def _github_headers(token: str) -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+
+
+def _find_job_run(repo: str, token: str, job_key: str) -> dict[str, Any] | None:
+    response = requests.get(
+        f"https://api.github.com/repos/{repo}/actions/runs",
+        params={"event": "workflow_dispatch", "per_page": 100},
+        timeout=30,
+        headers=_github_headers(token),
+    )
+    response.raise_for_status()
+    for run in response.json().get("workflow_runs", []):
+        title = str(run.get("display_title") or run.get("name") or "")
+        if job_key in title:
+            return run
+    return None
+
+
+def _artifact_for_run(
+    repo: str,
+    token: str,
+    run_id: int,
+    job_key: str,
+) -> dict[str, Any] | None:
+    response = requests.get(
+        f"https://api.github.com/repos/{repo}/actions/runs/{run_id}/artifacts",
+        params={"per_page": 100},
+        timeout=30,
+        headers=_github_headers(token),
+    )
+    response.raise_for_status()
+    artifacts = response.json().get("artifacts", [])
+    exact = next((a for a in artifacts if a.get("name") == job_key), None)
+    if exact:
+        return exact
+    if len(artifacts) == 1:
+        return artifacts[0]
+    return None
+
+
+def _artifact_signed_download_url(repo: str, token: str, artifact_id: int) -> str:
+    response = requests.get(
+        f"https://api.github.com/repos/{repo}/actions/artifacts/{artifact_id}/zip",
+        timeout=30,
+        headers=_github_headers(token),
+        allow_redirects=False,
+    )
+    if response.status_code in {301, 302, 303, 307, 308}:
+        location = response.headers.get("Location")
+        if location:
+            return location
+    if response.status_code == 410:
+        raise RuntimeError("The GitHub Actions artifact has expired.")
+    response.raise_for_status()
+    raise RuntimeError("GitHub did not return an artifact download redirect.")
+
+
+@mcp.tool()
+def get_job_result(job_key: str) -> dict[str, Any]:
+    """Return a short-lived direct download URL for a completed job artifact.
+
+    The URL points directly to GitHub's artifact object storage and does not
+    expose the repository token. The client should download it immediately.
+    """
+    repo = os.getenv("GITHUB_WORKFLOW_REPOSITORY", "ygangxian-cpu/remote-sensing-mcp")
+    token = os.getenv("GITHUB_WORKFLOW_TOKEN", "")
+    if not token:
+        raise RuntimeError("GitHub Actions result retrieval is not configured.")
+
+    run = _find_job_run(repo, token, job_key)
+    if run is None:
+        return {
+            "found": False,
+            "job_key": job_key,
+            "ready": False,
+            "message": "No matching workflow_dispatch run was found.",
+        }
+
+    status = run.get("status")
+    conclusion = run.get("conclusion")
+    result: dict[str, Any] = {
+        "found": True,
+        "job_key": job_key,
+        "run_id": run.get("id"),
+        "status": status,
+        "conclusion": conclusion,
+        "workflow_url": run.get("html_url"),
+        "ready": False,
+    }
+    if status != "completed":
+        result["message"] = "The job is still running. Check again later."
+        return result
+    if conclusion != "success":
+        result["message"] = "The job completed but did not succeed."
+        return result
+
+    artifact = _artifact_for_run(repo, token, int(run["id"]), job_key)
+    if artifact is None:
+        result["message"] = "The job succeeded but no matching result artifact was found."
+        return result
+    if artifact.get("expired"):
+        result["message"] = "The result artifact has expired."
+        result["artifact_id"] = artifact.get("id")
+        result["artifact_expires_at"] = artifact.get("expires_at")
+        return result
+
+    signed_url = _artifact_signed_download_url(
+        repo,
+        token,
+        int(artifact["id"]),
+    )
+    result.update(
+        {
+            "ready": True,
+            "artifact_id": artifact.get("id"),
+            "artifact_name": artifact.get("name"),
+            "artifact_size_bytes": artifact.get("size_in_bytes"),
+            "artifact_expires_at": artifact.get("expires_at"),
+            "download_url": signed_url,
+            "suggested_filename": f"{job_key}.zip",
+            "download_url_note": (
+                "This GitHub-signed URL is short-lived. Download it immediately; "
+                "the long-lived result remains in the repository cache where applicable."
+            ),
+            "client_next_step": (
+                "Save download_url to the user's requested local directory. "
+                "On Windows, Codex can use curl.exe -L <download_url> -o <path>."
+            ),
+        }
+    )
+    return result
+
+
 @mcp.tool()
 def service_status() -> dict[str, Any]:
     """Show which online capabilities are configured."""
@@ -253,6 +394,7 @@ def service_status() -> dict[str, Any]:
         "modis_lst_cache_backend": "github_repository_roi",
         "landsat_cache_backend": "github_repository_roi",
         "scaling_factors_cache_backend": "github_repository_roi",
+        "job_result_download_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
         "elite_persistent_storage_configured": True,
         "elite_cache_backend": "github_repository",
         "gcs_bucket_configured": bool(os.getenv("GEE_GCS_BUCKET")),
@@ -364,6 +506,7 @@ def submit_elite_fy4a_lst_job(
         "repository": repo,
         "workflow": workflow,
         "status_tool": "elite_job_status",
+        "result_tool": "get_job_result",
         "region_name": region_name or None,
         "storage_architecture": "Zenodo temporary archive -> GitHub China cache -> ROI artifact",
     }
@@ -492,6 +635,7 @@ def submit_era5_land_job(
         "hours": hours,
         "bands": list(ERA5_LAND_BANDS.keys()),
         "status_tool": "era5_job_status",
+        "result_tool": "get_job_result",
     }
 
 
@@ -590,6 +734,7 @@ def submit_modis_lst_job(
         "workflow": workflow,
         "platforms": requested,
         "status_tool": "modis_job_status",
+        "result_tool": "get_job_result",
     }
 
 
@@ -692,6 +837,7 @@ def submit_landsat_job(
         "satellites": requested,
         "cloud_cover_max": cloud_cover_max,
         "status_tool": "landsat_job_status",
+        "result_tool": "get_job_result",
     }
 
 
@@ -831,6 +977,7 @@ def submit_scaling_factors_job(
         "region_name": region_name or None,
         "days": days,
         "status_tool": "scaling_factors_job_status",
+        "result_tool": "get_job_result",
     }
 
 
@@ -1020,7 +1167,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Remote Sensing MCP",
     description="ELITE FY-4A + ERA5-Land + MODIS + Landsat + scaling factors MCP gateway",
-    version="0.8.1",
+    version="0.9.0",
     lifespan=lifespan,
 )
 
@@ -1049,7 +1196,7 @@ def health():
     return {
         "ok": True,
         "service": "remote-sensing-mcp",
-        "version": "0.8.1",
+        "version": "0.9.0",
         "vercel": bool(os.getenv("VERCEL")),
         "ee_configured": bool(
             os.getenv("EE_SERVICE_ACCOUNT_JSON") or os.getenv("EE_SERVICE_ACCOUNT_JSON_BASE64")
@@ -1061,6 +1208,7 @@ def health():
         "modis_lst_repo_cache_enabled": True,
         "landsat_repo_cache_enabled": True,
         "scaling_factors_repo_cache_enabled": True,
+        "job_result_download_enabled": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
         "auth_enabled": bool(REMOTE_TOKEN),
     }
 
