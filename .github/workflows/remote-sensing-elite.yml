@@ -43,6 +43,7 @@ jobs:
     timeout-minutes: 330
     env:
       REMOTE_DATA_BUCKET: "${{ secrets.REMOTE_DATA_BUCKET }}"
+      GEE_GCS_BUCKET: "${{ secrets.GEE_GCS_BUCKET }}"
       GCP_SERVICE_ACCOUNT_JSON_BASE64: "${{ secrets.GCP_SERVICE_ACCOUNT_JSON_BASE64 }}"
     steps:
       - name: Checkout
