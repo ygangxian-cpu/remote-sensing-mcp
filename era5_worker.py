@@ -91,14 +91,30 @@ def cache_path(rid: str, ts: datetime) -> Path:
 
 def init_ee() -> str:
     """Initialize Earth Engine from user OAuth credentials or a service account."""
-    project = os.getenv("EE_PROJECT", "").strip() or DEFAULT_PROJECT
-
-    # Preferred for this personal research workflow: reuse the user's existing
-    # Earth Engine OAuth credentials written to ~/.config/earthengine/credentials.
     user_credentials_file = Path.home() / ".config" / "earthengine" / "credentials"
+
+    # Personal OAuth mode: mirror the user's working local Earth Engine setup.
+    # Do NOT force EE_PROJECT here. The user's saved credentials/default quota
+    # project may differ from a Cloud project that is visible in the console.
     if user_credentials_file.exists():
-        ee.Initialize(project=project)
-        return project
+        saved_project = ""
+        try:
+            saved = json.loads(user_credentials_file.read_text(encoding="utf-8"))
+            saved_project = str(
+                saved.get("project")
+                or saved.get("project_id")
+                or saved.get("quota_project_id")
+                or ""
+            ).strip()
+        except (OSError, json.JSONDecodeError):
+            saved_project = ""
+
+        if saved_project:
+            ee.Initialize(project=saved_project)
+            return saved_project
+
+        ee.Initialize()
+        return "oauth-default"
 
     # Optional future fallback: service-account JSON.
     raw = os.getenv("EE_SERVICE_ACCOUNT_JSON", "").strip()
