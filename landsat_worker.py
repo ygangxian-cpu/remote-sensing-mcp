@@ -19,7 +19,7 @@ from google.oauth2 import service_account
 
 PROJECT_DEFAULT = "ee-ygangxian"
 NODATA = -9999.0
-CACHE_VERSION = "v1"
+CACHE_VERSION = "v2"
 COLLECTIONS = {
     "L8": "LANDSAT/LC08/C02/T1_L2",
     "L9": "LANDSAT/LC09/C02/T1_L2",
@@ -33,6 +33,8 @@ BANDS = [
     ("SR_B5", "SR_B5", "reflectance"),
     ("SR_B6", "SR_B6", "reflectance"),
     ("SR_B7", "SR_B7", "reflectance"),
+    ("QA_PIXEL", "QA_PIXEL", "raw_qa_bitfield"),
+    ("QA_RADSAT", "QA_RADSAT", "raw_qa_bitfield"),
 ]
 
 
@@ -81,25 +83,123 @@ def region_id(region_name: str, bbox: list[float]) -> str:
     return f"{slugify(region_name or 'roi')}-{bbox_hash(bbox)}"
 
 
-def mask_and_scale(image):
-    qa = image.select("QA_PIXEL")
-    mask = ee.Image(1)
-    for bit in [0, 1, 2, 3, 4, 5, 7]:
-        mask = mask.And(qa.bitwiseAnd(1 << bit).eq(0))
-    mask = mask.And(image.select("QA_RADSAT").eq(0))
-
+def prepare_scene(image):
+    """Preserve native Landsat availability and QA; research masks are applied downstream."""
     lst = image.select("ST_B10").multiply(0.00341802).add(149.0).subtract(273.15).rename("LST_C")
     stqa = image.select("ST_QA").multiply(0.01).rename("ST_QA_K")
-    sr = image.select(["SR_B2","SR_B3","SR_B4","SR_B5","SR_B6","SR_B7"]).multiply(0.0000275).add(-0.2)
+    sr = (
+        image.select(["SR_B2", "SR_B3", "SR_B4", "SR_B5", "SR_B6", "SR_B7"])
+        .multiply(0.0000275)
+        .add(-0.2)
+    )
+    qa_pixel = image.select("QA_PIXEL").rename("QA_PIXEL").toFloat()
+    qa_radsat = image.select("QA_RADSAT").rename("QA_RADSAT").toFloat()
 
-    prepared = ee.Image.cat([lst, stqa, sr]).updateMask(mask).toFloat()
+    prepared = ee.Image.cat([lst, stqa, sr, qa_pixel, qa_radsat]).toFloat()
     return ee.Image(
         prepared.copyProperties(
             image,
-            ["system:time_start","LANDSAT_PRODUCT_ID","LANDSAT_SCENE_ID","SPACECRAFT_ID","CLOUD_COVER","WRS_PATH","WRS_ROW"],
+            ["system:time_start", "LANDSAT_PRODUCT_ID", "LANDSAT_SCENE_ID",
+             "SPACECRAFT_ID", "CLOUD_COVER", "WRS_PATH", "WRS_ROW"],
         )
     )
 
+
+def _ratio(count: int, total: int) -> float:
+    return round(count / total, 6) if total else 0.0
+
+
+def _landsat_quality_summary(
+    arrays: list[np.ma.MaskedArray],
+    metadata: dict[str, Any],
+) -> dict[str, Any]:
+    total = int(arrays[0].shape[0] * arrays[0].shape[1])
+    lst = arrays[0]
+    qa = arrays[8]
+    radsat = arrays[9]
+
+    lst_valid = ~np.ma.getmaskarray(lst)
+    qa_valid = ~np.ma.getmaskarray(qa)
+    radsat_valid = ~np.ma.getmaskarray(radsat)
+
+    qa_values = np.asarray(qa.data, dtype="int32")
+    radsat_values = np.asarray(radsat.data, dtype="int32")
+
+    bit_names = {
+        0: "fill",
+        1: "dilated_cloud",
+        2: "cirrus",
+        3: "cloud",
+        4: "cloud_shadow",
+        5: "snow",
+        6: "clear",
+        7: "water",
+    }
+    bit_counts = {
+        name: int((qa_valid & ((qa_values & (1 << bit)) != 0)).sum())
+        for bit, name in bit_names.items()
+    }
+
+    atmospheric_clear = qa_valid.copy()
+    for bit in [0, 1, 2, 3, 4, 5]:
+        atmospheric_clear &= (qa_values & (1 << bit)) == 0
+
+    native_lst_count = int(lst_valid.sum())
+    clear_lst = lst_valid & atmospheric_clear
+    clear_lst_count = int(clear_lst.sum())
+
+    any_radsat = radsat_valid & (radsat_values != 0)
+    all_sr_native_valid = np.ones_like(lst_valid, dtype=bool)
+    for sr_idx in range(2, 8):
+        all_sr_native_valid &= ~np.ma.getmaskarray(arrays[sr_idx])
+    sr_model_ready = atmospheric_clear & radsat_valid & (radsat_values == 0) & all_sr_native_valid
+
+    return {
+        "total_pixels": total,
+        "scene_cloud_cover_percent_metadata": float(metadata.get("cloud_cover") or 0.0),
+        "native_lst_valid_pixels": native_lst_count,
+        "native_lst_valid_ratio": _ratio(native_lst_count, total),
+        "clear_lst_pixels": clear_lst_count,
+        "clear_lst_ratio": _ratio(clear_lst_count, total),
+        "qa_available_pixels": int(qa_valid.sum()),
+        "qa_bit_counts": bit_counts,
+        "water_pixels": bit_counts["water"],
+        "water_ratio": _ratio(bit_counts["water"], total),
+        "radiometric_saturation_pixels": int(any_radsat.sum()),
+        "radiometric_saturation_ratio": _ratio(int(any_radsat.sum()), total),
+        "sr_clear_unsaturated_pixels": int(sr_model_ready.sum()),
+        "sr_clear_unsaturated_ratio": _ratio(int(sr_model_ready.sum()), total),
+        "note": (
+            "No QA mask is applied during download. clear_lst excludes fill/dilated cloud/"
+            "cirrus/cloud/cloud shadow/snow for diagnostics only; water is retained. "
+            "QA_RADSAT is reported separately and is not used to erase LST."
+        ),
+    }
+
+
+def _inspect_landsat_file(path: Path, metadata: dict[str, Any]) -> dict[str, Any]:
+    with rasterio.open(path) as src:
+        data = src.read(masked=True).astype("float32")
+        arrays = [data[i] for i in range(data.shape[0])]
+        stats = {}
+        for i, (name, _, unit) in enumerate(BANDS):
+            vals = arrays[i].compressed()
+            stats[name] = {
+                "unit": unit,
+                "valid_pixels": int(vals.size),
+                "min": float(vals.min()) if vals.size else None,
+                "max": float(vals.max()) if vals.size else None,
+                "mean": float(vals.mean()) if vals.size else None,
+            }
+        return {
+            "path": str(path),
+            "size_bytes": path.stat().st_size,
+            "width": src.width,
+            "height": src.height,
+            "crs": str(src.crs),
+            "stats": stats,
+            "quality_summary": _landsat_quality_summary(arrays, metadata),
+        }
 
 def safe_name(value: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]+", "_", value)
@@ -109,7 +209,7 @@ def cache_path(rid: str, ts: datetime, product_id: str) -> Path:
     return (
         Path("data") / "landsat_c2_l2" / CACHE_VERSION / rid
         / f"{ts:%Y}" / f"{ts:%m}" / f"{ts:%d}"
-        / f"{safe_name(product_id)}_L2_QC.tif"
+        / f"{safe_name(product_id)}_L2_RAW_QA.tif"
     )
 
 
@@ -136,8 +236,7 @@ def download_scene(image, bbox: list[float], out: Path, metadata: dict[str, Any]
 
     arrays = []
     profile = None
-    stats = {}
-    for name, _, unit in BANDS:
+    for name, _, _ in BANDS:
         p = work / f"{name}.tif"
         download_band(image, name, bbox, p)
         with rasterio.open(p) as src:
@@ -145,14 +244,6 @@ def download_scene(image, bbox: list[float], out: Path, metadata: dict[str, Any]
             arrays.append(arr)
             if profile is None:
                 profile = src.profile.copy()
-            vals = arr.compressed()
-            stats[name] = {
-                "unit": unit,
-                "valid_pixels": int(vals.size),
-                "min": float(vals.min()) if vals.size else None,
-                "max": float(vals.max()) if vals.size else None,
-                "mean": float(vals.mean()) if vals.size else None,
-            }
 
     assert profile is not None
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -169,20 +260,15 @@ def download_scene(image, bbox: list[float], out: Path, metadata: dict[str, Any]
             cloud_cover=str(metadata["cloud_cover"]),
             lst_conversion="ST_B10*0.00341802+149-273.15",
             sr_conversion="SR_Bx*0.0000275-0.2",
-            qa_mask="QA_PIXEL bits 0,1,2,3,4,5,7 == 0 and QA_RADSAT == 0",
+            download_mask="native product availability only; no additional QA mask",
+            recommended_clear_mask="QA_PIXEL bits 0,1,2,3,4,5 == 0; water retained",
+            qa_radsat_policy="preserved and reported separately; not used to erase LST",
+            cache_version=CACHE_VERSION,
         )
 
-    result = {
-        "path": str(out),
-        "size_bytes": out.stat().st_size,
-        "width": profile["width"],
-        "height": profile["height"],
-        "crs": str(profile["crs"]),
-        "stats": stats,
-    }
+    result = _inspect_landsat_file(out, metadata)
     shutil.rmtree(work, ignore_errors=True)
     return result
-
 
 def load_index(path: Path) -> dict[str, Any]:
     if path.exists():
@@ -263,11 +349,13 @@ def main():
         }
 
         cache = cache_path(rid, ts, product_id)
-        details = None
+        was_created = False
         if cache.exists():
             hits += 1
+            details = _inspect_landsat_file(cache, metadata)
         else:
-            details = download_scene(mask_and_scale(source), bbox, cache, metadata)
+            details = download_scene(prepare_scene(source), bbox, cache, metadata)
+            was_created = True
             created += 1
             region_meta["scenes"][product_id] = {
                 "path": str(cache),
@@ -280,7 +368,7 @@ def main():
             **metadata,
             "cache_path": str(cache),
             "artifact_path": str(artifact),
-            "created": details is not None,
+            "created": was_created,
             "details": details,
         })
 
@@ -299,6 +387,10 @@ def main():
         "region_id": rid,
         "satellites": sats,
         "cloud_cover_max": args.cloud_cover_max,
+        "download_mask": "native product availability only; no additional QA mask",
+        "qa_preserved": True,
+        "water_preserved": True,
+        "cache_version": CACHE_VERSION,
         "scene_count": count,
         "cache_hits": hits,
         "cache_created": created,
