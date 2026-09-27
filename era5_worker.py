@@ -90,27 +90,39 @@ def cache_path(rid: str, ts: datetime) -> Path:
 
 
 def init_ee() -> str:
+    """Initialize Earth Engine from user OAuth credentials or a service account."""
+    project = os.getenv("EE_PROJECT", "").strip() or DEFAULT_PROJECT
+
+    # Preferred for this personal research workflow: reuse the user's existing
+    # Earth Engine OAuth credentials written to ~/.config/earthengine/credentials.
+    user_credentials_file = Path.home() / ".config" / "earthengine" / "credentials"
+    if user_credentials_file.exists():
+        ee.Initialize(project=project)
+        return project
+
+    # Optional future fallback: service-account JSON.
     raw = os.getenv("EE_SERVICE_ACCOUNT_JSON", "").strip()
     raw_b64 = os.getenv("EE_SERVICE_ACCOUNT_JSON_BASE64", "").strip()
     if not raw and raw_b64:
         raw = base64.b64decode(raw_b64).decode("utf-8")
-    if not raw:
-        raise RuntimeError(
-            "Earth Engine credentials are missing. Add the GitHub Actions secret "
-            "EE_SERVICE_ACCOUNT_JSON_BASE64."
-        )
 
-    info = json.loads(raw)
-    project = os.getenv("EE_PROJECT", "").strip() or info.get("project_id") or DEFAULT_PROJECT
-    credentials = service_account.Credentials.from_service_account_info(
-        info,
-        scopes=[
-            "https://www.googleapis.com/auth/earthengine",
-            "https://www.googleapis.com/auth/cloud-platform",
-        ],
+    if raw:
+        info = json.loads(raw)
+        project = os.getenv("EE_PROJECT", "").strip() or info.get("project_id") or DEFAULT_PROJECT
+        credentials = service_account.Credentials.from_service_account_info(
+            info,
+            scopes=[
+                "https://www.googleapis.com/auth/earthengine",
+                "https://www.googleapis.com/auth/cloud-platform",
+            ],
+        )
+        ee.Initialize(credentials, project=project)
+        return project
+
+    raise RuntimeError(
+        "Earth Engine credentials are missing. Configure EE_USER_CREDENTIALS_JSON_BASE64 "
+        "or EE_SERVICE_ACCOUNT_JSON_BASE64 in GitHub Actions."
     )
-    ee.Initialize(credentials, project=project)
-    return project
 
 
 def prepared_image(ts: datetime):
