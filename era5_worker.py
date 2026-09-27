@@ -109,12 +109,9 @@ def init_ee() -> str:
         except (OSError, json.JSONDecodeError):
             saved_project = ""
 
-        if saved_project:
-            ee.Initialize(project=saved_project)
-            return saved_project
-
-        ee.Initialize()
-        return "oauth-default"
+        project = saved_project or "earthengine-legacy"
+        ee.Initialize(project=project)
+        return project
 
     # Optional future fallback: service-account JSON.
     raw = os.getenv("EE_SERVICE_ACCOUNT_JSON", "").strip()
