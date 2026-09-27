@@ -1,7 +1,7 @@
 [project]
 name = "remote-sensing-mcp"
-version = "0.3.0"
-description = "Remote MCP gateway for Google Earth Engine and ELITE FY-4A LST."
+version = "0.4.0"
+description = "Remote MCP gateway for Earth Engine and persistent ELITE FY-4A LST data workflows."
 requires-python = ">=3.12"
 dependencies = [
   "mcp[cli]>=2.0,<3",
