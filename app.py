@@ -193,6 +193,9 @@ def service_status() -> dict[str, Any]:
             os.getenv("EE_SERVICE_ACCOUNT_JSON") or os.getenv("EE_SERVICE_ACCOUNT_JSON_BASE64")
         ),
         "elite_worker_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
+        "elite_persistent_storage_configured": bool(
+            os.getenv("REMOTE_DATA_BUCKET") or os.getenv("GEE_GCS_BUCKET")
+        ),
         "gcs_bucket_configured": bool(os.getenv("GEE_GCS_BUCKET")),
     }
 
@@ -235,11 +238,33 @@ def plan_elite_fy4a_lst_download(start_date: str, end_date: str) -> dict[str, An
 
 
 @mcp.tool()
+def elite_storage_layout() -> dict[str, Any]:
+    """Describe the Raw -> Cache -> Derived object-storage layout used by ELITE jobs."""
+    bucket = os.getenv("REMOTE_DATA_BUCKET") or os.getenv("GEE_GCS_BUCKET")
+    return {
+        "architecture": "raw -> cache -> derived",
+        "persistent_storage_configured": bool(bucket),
+        "bucket": bucket,
+        "raw": "raw/elite/YYYY/MM/YYYYMM.zip",
+        "cache": "cache/elite/YYYY/MM/DD/ELITE_FY4A_LST_YYYYMMDD_HHMM_FULLDISK_K.tif",
+        "derived": "derived/elite/<region>-<bbox_hash>/YYYY/MM/DD/*.tif",
+        "cache_grid": "FY-4A/AGRI native geostationary 4 km",
+        "cache_unit": "kelvin",
+        "derived_crs": "EPSG:4326",
+        "note": (
+            "Raw monthly archives and full-disk hourly cache are reused across ROIs when "
+            "GitHub Actions has REMOTE_DATA_BUCKET and GCP_SERVICE_ACCOUNT_JSON_BASE64 secrets."
+        ),
+    }
+
+
+@mcp.tool()
 def submit_elite_fy4a_lst_job(
     start_date: str,
     end_date: str,
     bbox: list[float],
     output_unit: str = "celsius",
+    region_name: str = "",
 ) -> dict[str, Any]:
     """Submit a heavy ELITE download + HDF geolocation + ROI crop to GitHub Actions."""
     if len(bbox) != 4:
@@ -264,6 +289,7 @@ def submit_elite_fy4a_lst_job(
                 "start_date": start_date,
                 "end_date": end_date,
                 "bbox": ",".join(str(float(x)) for x in bbox),
+                "region_name": region_name,
                 "output_unit": output_unit,
             },
         },
@@ -276,6 +302,8 @@ def submit_elite_fy4a_lst_job(
         "repository": repo,
         "workflow": workflow,
         "status_tool": "elite_job_status",
+        "region_name": region_name or None,
+        "storage_architecture": "raw -> cache -> derived",
     }
 
 
@@ -466,7 +494,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Remote Sensing MCP",
     description="GEE + ELITE FY-4A remote-sensing MCP gateway",
-    version="0.3.0",
+    version="0.4.0",
     lifespan=lifespan,
 )
 
@@ -501,6 +529,9 @@ def health():
         ),
         "github_actions_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
         "gcs_bucket_configured": bool(os.getenv("GEE_GCS_BUCKET")),
+        "remote_data_bucket_configured": bool(
+            os.getenv("REMOTE_DATA_BUCKET") or os.getenv("GEE_GCS_BUCKET")
+        ),
         "auth_enabled": bool(REMOTE_TOKEN),
     }
 
