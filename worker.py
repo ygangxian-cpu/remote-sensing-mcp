@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 import h5py
+from pyhdf.SD import SD, SDC
 import numpy as np
 import requests
 import rasterio
@@ -179,14 +180,36 @@ def score(name: str, shape):
 
 
 def read_lst(path: Path):
-    with h5py.File(path, "r") as h5:
-        ranked = sorted(datasets(h5), key=lambda x: score(x[0], x[1].shape), reverse=True)
-        if not ranked or score(ranked[0][0], ranked[0][1].shape) <= 0:
-            raise RuntimeError(f"Cannot auto-detect LST dataset in {path}")
-        name, ds = ranked[0]
-        arr = np.asarray(ds[...], dtype="float32")
-        attrs = {str(k): v for k, v in ds.attrs.items()}
-    return arr, name, attrs
+    # Try HDF5 first.
+    try:
+        with h5py.File(path, "r") as h5:
+            ranked = sorted(datasets(h5), key=lambda x: score(x[0], x[1].shape), reverse=True)
+            if not ranked or score(ranked[0][0], ranked[0][1].shape) <= 0:
+                raise RuntimeError(f"Cannot auto-detect LST dataset in {path}")
+            name, ds = ranked[0]
+            arr = np.asarray(ds[...], dtype="float32")
+            attrs = {str(k): v for k, v in ds.attrs.items()}
+        return arr, name, attrs
+    except OSError:
+        pass
+
+    # ELITE .hdf archives are HDF4. Fall back to pyhdf.
+    h4 = SD(str(path), SDC.READ)
+    try:
+        candidates = []
+        for name, meta in h4.datasets().items():
+            shape = tuple(meta[1]) if len(meta) > 1 else ()
+            candidates.append((score(name, shape), name, shape))
+        candidates.sort(reverse=True)
+        if not candidates or candidates[0][0] <= 0:
+            raise RuntimeError(f"Cannot auto-detect LST dataset in HDF4 file {path}")
+        _, name, _ = candidates[0]
+        ds = h4.select(name)
+        arr = np.asarray(ds[:], dtype="float32")
+        attrs = {str(k): v for k, v in ds.attributes().items()}
+        return arr, name, attrs
+    finally:
+        h4.end()
 
 
 def src_crs():
