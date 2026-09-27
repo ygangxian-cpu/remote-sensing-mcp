@@ -24,7 +24,8 @@ CACHE_VERSION = "v1"
 
 SRTM = "USGS/SRTMGL1_003"
 WORLDCOVER = "ESA/WorldCover/v200"
-S2_SR = "COPERNICUS/S2_SR_HARMONIZED"
+LANDSAT8 = "LANDSAT/LC08/C02/T1_L2"
+LANDSAT9 = "LANDSAT/LC09/C02/T1_L2"
 MCD43A3 = "MODIS/061/MCD43A3"
 
 TARGET_SCALE_M = 100
@@ -249,21 +250,38 @@ def build_worldcover(bbox: list[float], out: Path) -> dict[str, Any]:
     return result
 
 
-def mask_s2(image):
-    scl = image.select("SCL")
-    # Keep dark-area, vegetation, bare-soil and water classes. Remove
-    # no-data/defective, cloud shadow, uncertain/cloud, cirrus and snow/ice.
-    valid = (
-        scl.neq(0)
-        .And(scl.neq(1))
-        .And(scl.neq(3))
-        .And(scl.neq(7))
-        .And(scl.neq(8))
-        .And(scl.neq(9))
-        .And(scl.neq(10))
-        .And(scl.neq(11))
+def mask_landsat_sr(image):
+    """Mask clouds/shadow/snow/saturation for spectral scaling factors.
+
+    Water is intentionally retained so MNDWI/NDMI remain meaningful. Target
+    LST masking may remove water later at model-training time if desired.
+    """
+    qa = image.select("QA_PIXEL")
+    mask = ee.Image(1)
+    for bit in [0, 1, 2, 3, 4, 5]:
+        mask = mask.And(qa.bitwiseAnd(1 << bit).eq(0))
+    mask = mask.And(image.select("QA_RADSAT").eq(0))
+
+    sr = (
+        image.select(["SR_B2", "SR_B3", "SR_B4", "SR_B5", "SR_B6", "SR_B7"])
+        .multiply(0.0000275)
+        .add(-0.2)
+        .updateMask(mask)
+        .toFloat()
     )
-    return image.updateMask(valid)
+    return ee.Image(
+        sr.copyProperties(
+            image,
+            [
+                "system:time_start",
+                "LANDSAT_PRODUCT_ID",
+                "SPACECRAFT_ID",
+                "CLOUD_COVER",
+                "WRS_PATH",
+                "WRS_ROW",
+            ],
+        )
+    )
 
 
 def safe_div(num, den):
@@ -277,25 +295,33 @@ def build_surface_factors(
     out: Path,
 ) -> dict[str, Any]:
     geom = region_geom(bbox)
-    collection = (
-        ee.ImageCollection(S2_SR)
-        .filterDate(start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))
-        .filterBounds(geom)
-        .filter(ee.Filter.lte("CLOUDY_PIXEL_PERCENTAGE", 80))
-        .map(mask_s2)
-    )
+
+    def selected_collection(dataset: str):
+        return (
+            ee.ImageCollection(dataset)
+            .filterDate(start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))
+            .filterBounds(geom)
+            .filter(ee.Filter.lte("CLOUD_COVER", 80))
+            .map(mask_landsat_sr)
+        )
+
+    collection = selected_collection(LANDSAT8).merge(selected_collection(LANDSAT9))
+    collection = collection.sort("system:time_start")
     scene_count = int(collection.size().getInfo())
     if scene_count < 1:
-        raise RuntimeError("No Sentinel-2 SR scenes found for requested period")
+        raise RuntimeError("No Landsat 8/9 C2 L2 scenes found for requested period")
 
-    composite = collection.median().multiply(0.0001)
+    scene_ids = collection.aggregate_array("LANDSAT_PRODUCT_ID").getInfo()
+    spacecraft = collection.aggregate_array("SPACECRAFT_ID").getInfo()
 
-    blue = composite.select("B2").rename("BLUE")
-    green = composite.select("B3").rename("GREEN")
-    red = composite.select("B4").rename("RED")
-    nir = composite.select("B8").rename("NIR")
-    swir1 = composite.select("B11").rename("SWIR1")
-    swir2 = composite.select("B12").rename("SWIR2")
+    composite = collection.median()
+
+    blue = composite.select("SR_B2").rename("BLUE")
+    green = composite.select("SR_B3").rename("GREEN")
+    red = composite.select("SR_B4").rename("RED")
+    nir = composite.select("SR_B5").rename("NIR")
+    swir1 = composite.select("SR_B6").rename("SWIR1")
+    swir2 = composite.select("SR_B7").rename("SWIR2")
 
     ndvi = safe_div(nir.subtract(red), nir.add(red)).rename("NDVI")
     evi = (
@@ -311,11 +337,10 @@ def build_surface_factors(
     bsi_den = swir1.add(red).add(nir).add(blue)
     bsi = safe_div(bsi_num, bsi_den).rename("BSI")
 
-    # Adaptive dimidiate-pixel FVC: use robust NDVI percentiles in this ROI.
     ndvi_stats = ndvi.reduceRegion(
         reducer=ee.Reducer.percentile([5, 95]),
         geometry=geom,
-        scale=TARGET_SCALE_M,
+        scale=30,
         bestEffort=True,
         maxPixels=100_000_000,
     ).getInfo()
@@ -327,14 +352,16 @@ def build_surface_factors(
     ndvi_veg = float(ndvi_veg)
     fvc = ndvi.subtract(ndvi_soil).divide(ndvi_veg - ndvi_soil).clamp(0, 1).rename("FVC")
 
+    # Follow the existing Landsat workflow convention: 30 m predictors are
+    # resampled to the 100 m downscaling grid with bilinear interpolation.
     factors = ee.Image.cat(
         [blue, green, red, nir, swir1, swir2, ndvi, evi, fvc, mndwi, ndbi, bsi, ndmi]
-    ).toFloat()
+    ).toFloat().resample("bilinear")
 
     work = Path("output/work/scaling")
     work.mkdir(parents=True, exist_ok=True)
-    raw = work / "surface_factors_raw.tif"
-    get_download(factors, bbox, TARGET_SCALE_M, "surface_factors_100m", raw)
+    raw = work / "landsat_surface_factors_raw.tif"
+    get_download(factors, bbox, TARGET_SCALE_M, "landsat_surface_factors_100m", raw)
 
     bands = [
         "BLUE",
@@ -356,13 +383,17 @@ def build_surface_factors(
         out,
         bands,
         {
-            "dataset": S2_SR,
+            "dataset_l8": LANDSAT8,
+            "dataset_l9": LANDSAT9,
             "composite": "median",
             "start_date": start.strftime("%Y-%m-%d"),
             "end_date": end.strftime("%Y-%m-%d"),
             "scene_count": str(scene_count),
-            "reflectance_scale_applied": "0.0001",
-            "cloud_mask": "SCL excludes 0,1,3,7,8,9,10,11",
+            "scene_ids": ",".join(str(x) for x in scene_ids),
+            "spacecraft": ",".join(sorted(set(str(x) for x in spacecraft))),
+            "surface_reflectance_conversion": "SR_Bx*0.0000275-0.2",
+            "qa_mask": "QA_PIXEL bits 0,1,2,3,4,5 == 0; QA_RADSAT == 0; water retained",
+            "resampling_to_100m": "bilinear",
             "target_scale_m": str(TARGET_SCALE_M),
             "fvc_method": "linear dimidiate-pixel NDVI scaling, clamped 0-1",
             "fvc_ndvi_soil": str(ndvi_soil),
@@ -370,6 +401,7 @@ def build_surface_factors(
         },
     )
     result["scene_count"] = scene_count
+    result["scene_ids"] = scene_ids
     result["fvc_ndvi_soil"] = ndvi_soil
     result["fvc_ndvi_veg"] = ndvi_veg
     raw.unlink(missing_ok=True)
@@ -478,7 +510,7 @@ def main() -> None:
 
     terrain_file = static_dir / "SRTM_TERRAIN_100M.tif"
     landcover_file = static_dir / "WORLDCOVER_2021_100M.tif"
-    surface_file = period_dir / "S2_SCALING_FACTORS_100M.tif"
+    surface_file = period_dir / "LANDSAT_SCALING_FACTORS_100M.tif"
 
     index_path = Path("data/metadata/scaling-factors-index.json")
     index = load_index(index_path)
@@ -589,7 +621,7 @@ def main() -> None:
                 "BSI",
                 "NDMI",
             ],
-            "source": S2_SR,
+            "source": [LANDSAT8, LANDSAT9],
             "composite": "median over requested period",
         },
         "albedo": {
