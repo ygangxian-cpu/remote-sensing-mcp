@@ -193,9 +193,8 @@ def service_status() -> dict[str, Any]:
             os.getenv("EE_SERVICE_ACCOUNT_JSON") or os.getenv("EE_SERVICE_ACCOUNT_JSON_BASE64")
         ),
         "elite_worker_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
-        "elite_persistent_storage_configured": bool(
-            os.getenv("REMOTE_DATA_BUCKET") or os.getenv("GEE_GCS_BUCKET")
-        ),
+        "elite_persistent_storage_configured": True,
+        "elite_cache_backend": "github_repository",
         "gcs_bucket_configured": bool(os.getenv("GEE_GCS_BUCKET")),
     }
 
@@ -239,21 +238,24 @@ def plan_elite_fy4a_lst_download(start_date: str, end_date: str) -> dict[str, An
 
 @mcp.tool()
 def elite_storage_layout() -> dict[str, Any]:
-    """Describe the Raw -> Cache -> Derived object-storage layout used by ELITE jobs."""
-    bucket = os.getenv("REMOTE_DATA_BUCKET") or os.getenv("GEE_GCS_BUCKET")
+    """Describe the repository-backed China cache used by ELITE jobs."""
     return {
-        "architecture": "raw -> cache -> derived",
-        "persistent_storage_configured": bool(bucket),
-        "bucket": bucket,
-        "raw": "raw/elite/YYYY/MM/YYYYMM.zip",
-        "cache": "cache/elite/YYYY/MM/DD/ELITE_FY4A_LST_YYYYMMDD_HHMM_FULLDISK_K.tif",
-        "derived": "derived/elite/<region>-<bbox_hash>/YYYY/MM/DD/*.tif",
-        "cache_grid": "FY-4A/AGRI native geostationary 4 km",
+        "architecture": "Zenodo temporary archive -> GitHub China cache -> ROI artifact",
+        "persistent_storage_configured": True,
+        "backend": "github_repository",
+        "raw_archive": "temporary only; deleted after missing hours are extracted",
+        "cache": "data/elite/china/YYYY/MM/DD/ELITE_FY4A_LST_YYYYMMDD_HHMM_CHINA_K.tif",
+        "metadata": "data/metadata/elite-index.json",
+        "china_bbox": [73.0, 18.0, 135.0, 54.0],
+        "cache_crs": "EPSG:4326",
+        "cache_resolution_degrees": 0.035932611365,
+        "cache_dtype": "uint16",
+        "cache_scale_factor": 0.01,
         "cache_unit": "kelvin",
-        "derived_crs": "EPSG:4326",
+        "derived": "GitHub Actions artifact only",
         "note": (
-            "Raw monthly archives and full-disk hourly cache are reused across ROIs when "
-            "GitHub Actions has REMOTE_DATA_BUCKET and GCP_SERVICE_ACCOUNT_JSON_BASE64 secrets."
+            "If a requested hour already exists in data/elite/china, the worker skips "
+            "the Zenodo monthly archive and crops the ROI directly from the repository cache."
         ),
     }
 
@@ -303,7 +305,7 @@ def submit_elite_fy4a_lst_job(
         "workflow": workflow,
         "status_tool": "elite_job_status",
         "region_name": region_name or None,
-        "storage_architecture": "raw -> cache -> derived",
+        "storage_architecture": "Zenodo temporary archive -> GitHub China cache -> ROI artifact",
     }
 
 
@@ -494,7 +496,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Remote Sensing MCP",
     description="GEE + ELITE FY-4A remote-sensing MCP gateway",
-    version="0.4.0",
+    version="0.5.0",
     lifespan=lifespan,
 )
 
@@ -529,9 +531,7 @@ def health():
         ),
         "github_actions_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
         "gcs_bucket_configured": bool(os.getenv("GEE_GCS_BUCKET")),
-        "remote_data_bucket_configured": bool(
-            os.getenv("REMOTE_DATA_BUCKET") or os.getenv("GEE_GCS_BUCKET")
-        ),
+        "elite_repo_cache_enabled": True,
         "auth_enabled": bool(REMOTE_TOKEN),
     }
 
