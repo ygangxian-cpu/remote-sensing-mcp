@@ -1,1 +1,1 @@
-trigger Landsat smoke test
+retry Landsat smoke test after image cast fix
