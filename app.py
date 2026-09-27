@@ -21,6 +21,15 @@ from mcp.server.transport_security import TransportSecuritySettings
 ZENODO_API = "https://zenodo.org/api"
 ELITE_TITLE = "ELITE land surface temperature: FY-4A/AGRI hourly 4km seamless LST"
 KNOWN_ELITE_RECORDS = {2019: 10672052, 2021: 8378354}
+ERA5_LAND_BANDS = {
+    "T2_C": {"source": "temperature_2m", "unit": "degC"},
+    "TD2_C": {"source": "dewpoint_temperature_2m", "unit": "degC"},
+    "U10_MPS": {"source": "u_component_of_wind_10m", "unit": "m s-1"},
+    "V10_MPS": {"source": "v_component_of_wind_10m", "unit": "m s-1"},
+    "PSFC_PA": {"source": "surface_pressure", "unit": "Pa"},
+    "SWDOWN_WM2": {"source": "surface_solar_radiation_downwards_hourly", "unit": "W m-2"},
+    "GLW_WM2": {"source": "surface_thermal_radiation_downwards_hourly", "unit": "W m-2"},
+}
 DATASETS = {
     "era5_land_hourly": "ECMWF/ERA5_LAND/HOURLY",
     "modis_terra_lst": "MODIS/061/MOD11A1",
@@ -182,6 +191,19 @@ def _github_config() -> tuple[str, str, str, str]:
     return repo, workflow, ref, token
 
 
+def _github_era5_config() -> tuple[str, str, str, str]:
+    repo = os.getenv("GITHUB_WORKFLOW_REPOSITORY", "ygangxian-cpu/remote-sensing-mcp")
+    workflow = os.getenv("GITHUB_ERA5_WORKFLOW_ID", "remote-sensing-era5.yml")
+    ref = os.getenv("GITHUB_WORKFLOW_REF", "main")
+    token = os.getenv("GITHUB_WORKFLOW_TOKEN", "")
+    if not token:
+        raise RuntimeError(
+            "GitHub Actions remote dispatch is not configured. Add GITHUB_WORKFLOW_TOKEN "
+            "to Vercel, or run the ERA5-Land workflow manually in GitHub Actions."
+        )
+    return repo, workflow, ref, token
+
+
 @mcp.tool()
 def service_status() -> dict[str, Any]:
     """Show which online capabilities are configured."""
@@ -193,6 +215,8 @@ def service_status() -> dict[str, Any]:
             os.getenv("EE_SERVICE_ACCOUNT_JSON") or os.getenv("EE_SERVICE_ACCOUNT_JSON_BASE64")
         ),
         "elite_worker_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
+        "era5_land_worker_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
+        "era5_land_cache_backend": "github_repository_roi",
         "elite_persistent_storage_configured": True,
         "elite_cache_backend": "github_repository",
         "gcs_bucket_configured": bool(os.getenv("GEE_GCS_BUCKET")),
@@ -313,6 +337,132 @@ def submit_elite_fy4a_lst_job(
 def elite_job_status(job_key: str) -> dict[str, Any]:
     """Look up a submitted ELITE GitHub Actions job."""
     repo, workflow, _, token = _github_config()
+    response = requests.get(
+        f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}/runs",
+        params={"event": "workflow_dispatch", "per_page": 50},
+        timeout=30,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    response.raise_for_status()
+    runs = response.json().get("workflow_runs", [])
+    for run in runs:
+        title = str(run.get("display_title") or run.get("name") or "")
+        if job_key in title:
+            return {
+                "found": True,
+                "job_key": job_key,
+                "run_id": run.get("id"),
+                "status": run.get("status"),
+                "conclusion": run.get("conclusion"),
+                "html_url": run.get("html_url"),
+                "created_at": run.get("created_at"),
+                "updated_at": run.get("updated_at"),
+            }
+    return {"found": False, "job_key": job_key, "checked_runs": len(runs)}
+
+
+@mcp.tool()
+def era5_land_schema() -> dict[str, Any]:
+    """Describe the canonical ERA5-Land hourly variables and conversions."""
+    return {
+        "dataset": DATASETS["era5_land_hourly"],
+        "temporal_resolution": "1 hour",
+        "native_spatial_resolution": "about 0.1 degree / 11 km",
+        "timezone": "UTC",
+        "bands": ERA5_LAND_BANDS,
+        "conversions": {
+            "T2_C": "temperature_2m - 273.15",
+            "TD2_C": "dewpoint_temperature_2m - 273.15",
+            "SWDOWN_WM2": "surface_solar_radiation_downwards_hourly / 3600",
+            "GLW_WM2": "surface_thermal_radiation_downwards_hourly / 3600",
+        },
+    }
+
+
+@mcp.tool()
+def era5_storage_layout() -> dict[str, Any]:
+    """Describe the repository-backed ERA5-Land ROI cache."""
+    return {
+        "architecture": "GEE -> GitHub Actions -> ROI cache -> Artifact",
+        "backend": "github_repository",
+        "cache": (
+            "data/era5_land/v1/<region>-<bbox_hash>/YYYY/MM/DD/"
+            "ERA5LAND_YYYYMMDD_HHMM_UTC.tif"
+        ),
+        "metadata": "data/metadata/era5-land-index.json",
+        "cache_scope": "ROI-specific",
+        "cache_crs": "EPSG:4326",
+        "cache_bands": list(ERA5_LAND_BANDS.keys()),
+        "note": (
+            "ERA5-Land is small enough that ROI-level caching is preferred over a China-wide cache. "
+            "Repeated requests for the same ROI and hour reuse the repository GeoTIFF."
+        ),
+    }
+
+
+@mcp.tool()
+def submit_era5_land_job(
+    start_date: str,
+    end_date: str,
+    bbox: list[float],
+    region_name: str = "",
+) -> dict[str, Any]:
+    """Submit ERA5-Land hourly ROI acquisition to GitHub Actions."""
+    if len(bbox) != 4:
+        raise ValueError("bbox must be [xmin,ymin,xmax,ymax]")
+    start = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+    end = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+    hours = int((end - start).total_seconds() // 3600)
+    if hours < 1:
+        raise ValueError("end_date must be after start_date")
+    if hours > 384:
+        raise ValueError("One ERA5-Land job is limited to 384 hours (16 days)")
+
+    repo, workflow, ref, token = _github_era5_config()
+    job_key = f"era5-{int(time.time())}-{uuid.uuid4().hex[:8]}"
+    response = requests.post(
+        f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}/dispatches",
+        timeout=30,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+        json={
+            "ref": ref,
+            "inputs": {
+                "job_key": job_key,
+                "start_date": start_date,
+                "end_date": end_date,
+                "bbox": ",".join(str(float(x)) for x in bbox),
+                "region_name": region_name,
+            },
+        },
+    )
+    if response.status_code != 204:
+        raise RuntimeError(
+            f"GitHub ERA5-Land dispatch failed: {response.status_code} {response.text[:300]}"
+        )
+    return {
+        "submitted": True,
+        "job_key": job_key,
+        "repository": repo,
+        "workflow": workflow,
+        "region_name": region_name or None,
+        "hours": hours,
+        "bands": list(ERA5_LAND_BANDS.keys()),
+        "status_tool": "era5_job_status",
+    }
+
+
+@mcp.tool()
+def era5_job_status(job_key: str) -> dict[str, Any]:
+    """Look up a submitted ERA5-Land GitHub Actions job."""
+    repo, workflow, _, token = _github_era5_config()
     response = requests.get(
         f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}/runs",
         params={"event": "workflow_dispatch", "per_page": 50},
@@ -495,8 +645,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Remote Sensing MCP",
-    description="GEE + ELITE FY-4A remote-sensing MCP gateway",
-    version="0.5.0",
+    description="GEE + ELITE FY-4A + ERA5-Land remote-sensing MCP gateway",
+    version="0.6.0",
     lifespan=lifespan,
 )
 
@@ -532,6 +682,7 @@ def health():
         "github_actions_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
         "gcs_bucket_configured": bool(os.getenv("GEE_GCS_BUCKET")),
         "elite_repo_cache_enabled": True,
+        "era5_land_repo_cache_enabled": True,
         "auth_enabled": bool(REMOTE_TOKEN),
     }
 
