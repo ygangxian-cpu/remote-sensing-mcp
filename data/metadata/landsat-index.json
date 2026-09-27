@@ -11,6 +11,14 @@
       ],
       "region_name": "zhangye",
       "scenes": {
+        "LC08_L2SP_133033_20190924_20200826_02_T1": {
+          "acquired_utc": "2019-09-24T03:56:02.646000",
+          "cloud_cover": 4.88,
+          "path": "data/landsat_c2_l2/v1/zhangye-c6c86510ae/2019/09/24/LC08_L2SP_133033_20190924_20200826_02_T1_L2_QC.tif",
+          "product_id": "LC08_L2SP_133033_20190924_20200826_02_T1",
+          "scene_id": "LC81330332019267LGN00",
+          "spacecraft": "LANDSAT_8"
+        },
         "LC08_L2SP_133033_20210929_20211012_02_T1": {
           "acquired_utc": "2021-09-29T03:56:03.926000",
           "cloud_cover": 0.16,
@@ -18,9 +26,17 @@
           "product_id": "LC08_L2SP_133033_20210929_20211012_02_T1",
           "scene_id": "LC81330332021272LGN00",
           "spacecraft": "LANDSAT_8"
+        },
+        "LC08_L2SP_134033_20190915_20200826_02_T1": {
+          "acquired_utc": "2019-09-15T04:02:10.515000",
+          "cloud_cover": 5.03,
+          "path": "data/landsat_c2_l2/v1/zhangye-c6c86510ae/2019/09/15/LC08_L2SP_134033_20190915_20200826_02_T1_L2_QC.tif",
+          "product_id": "LC08_L2SP_134033_20190915_20200826_02_T1",
+          "scene_id": "LC81340332019258LGN00",
+          "spacecraft": "LANDSAT_8"
         }
       }
     }
   },
-  "updated_at": "2026-09-27T07:50:06.733802Z"
+  "updated_at": "2026-09-27T07:55:43.401604Z"
 }
