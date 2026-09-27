@@ -27,7 +27,7 @@ CFAC = LFAC = 10233137.0
 SAT_HEIGHT = 35785863.0
 OUT_RES = 0.035932611365
 
-JULIAN_PATTERN = re.compile(r"(?<!\\d)(20\\d{2})(\\d{3})(\\d{2})(\\d{2})(?!\\d)")
+JULIAN_PATTERN = re.compile(r"(?<!\d)(20\d{2})(\d{3})(\d{2})(\d{2})(?!\d)")
 
 PATTERNS = [
     # YYYYMMDDHHMMSS — common FY-4A product timestamp form
