@@ -1,5 +1,5 @@
 name: Remote Sensing ELITE Worker
-run-name: "ELITE ${{ inputs.job_key }}"
+run-name: "ELITE ${{ inputs.job_key || format('cache-hit-test-{0}', github.run_id) }}"
 
 on:
   workflow_dispatch:
@@ -34,6 +34,12 @@ on:
           - celsius
           - kelvin
 
+  push:
+    branches:
+      - main
+    paths:
+      - "worker.py"
+
 permissions:
   contents: write
 
@@ -45,6 +51,13 @@ jobs:
   elite:
     runs-on: ubuntu-latest
     timeout-minutes: 330
+    env:
+      START_DATE: "${{ inputs.start_date || '2019-09-24T00:00:00' }}"
+      END_DATE: "${{ inputs.end_date || '2019-09-24T01:00:00' }}"
+      BBOX: "${{ inputs.bbox || '100.1,38.7667,100.6,39.0667' }}"
+      REGION_NAME: "${{ inputs.region_name || 'zhangye' }}"
+      OUTPUT_UNIT: "${{ inputs.output_unit || 'celsius' }}"
+      JOB_KEY: "${{ inputs.job_key || format('cache-hit-test-{0}', github.run_id) }}"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -63,11 +76,11 @@ jobs:
       - name: Build/reuse China cache and crop ROI
         run: >-
           python worker.py
-          --start-date '${{ inputs.start_date }}'
-          --end-date '${{ inputs.end_date }}'
-          --bbox '${{ inputs.bbox }}'
-          --region-name '${{ inputs.region_name }}'
-          --output-unit '${{ inputs.output_unit }}'
+          --start-date "$START_DATE"
+          --end-date "$END_DATE"
+          --bbox "$BBOX"
+          --region-name "$REGION_NAME"
+          --output-unit "$OUTPUT_UNIT"
 
       - name: Commit new China cache
         run: |
@@ -75,7 +88,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add data/elite/china data/metadata/elite-index.json
-            git commit -m "data: cache ELITE China ${{ inputs.start_date }} [skip vercel]"
+            git commit -m "data: cache ELITE China $START_DATE [skip vercel]"
             git pull --rebase origin main
             git push origin HEAD:main
           else
@@ -90,7 +103,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: "${{ inputs.job_key }}"
+          name: "${{ env.JOB_KEY }}"
           path: |
             output/derived/**/*.tif
             output/result.json
