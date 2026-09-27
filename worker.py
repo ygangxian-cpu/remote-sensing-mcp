@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 import argparse
-import base64
 import hashlib
 import json
 import math
-import os
 import re
 import shutil
 import zipfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -18,8 +16,6 @@ import numpy as np
 import rasterio
 import requests
 from affine import Affine
-from google.cloud import storage
-from google.oauth2 import service_account
 from pyhdf.SD import SD, SDC
 from rasterio.crs import CRS
 from rasterio.enums import Resampling
@@ -33,8 +29,13 @@ KNOWN_RECORDS = {2019: 10672052, 2021: 8378354}
 COFF = LOFF = 1373.5
 CFAC = LFAC = 10233137.0
 SAT_HEIGHT = 35785863.0
-ROI_RES = 0.035932611365
-NODATA = -9999.0
+
+# Repository cache: China extent in EPSG:4326, approximately native 4 km spacing.
+CHINA_BBOX = [73.0, 18.0, 135.0, 54.0]
+OUT_RES = 0.035932611365
+FLOAT_NODATA = -9999.0
+CACHE_NODATA = np.uint16(65535)
+CACHE_SCALE = 0.01
 
 JULIAN_PATTERN = re.compile(r"(?<!\d)(20\d{2})(\d{3})(\d{2})(\d{2})(?!\d)")
 PATTERNS = [
@@ -47,6 +48,8 @@ PATTERNS = [
 
 def parse_ts(name: str) -> datetime | None:
     base = Path(name).name
+
+    # ELITE uses YYYYDDDHHMM, where DDD is day-of-year.
     m = JULIAN_PATTERN.search(base)
     if m:
         year, doy, hour, minute = m.groups()
@@ -73,18 +76,21 @@ def parse_ts(name: str) -> datetime | None:
     return None
 
 
-def months(start: datetime, end: datetime) -> list[str]:
-    y, m = start.year, start.month
-    out: list[str] = []
-    while True:
-        month_start = datetime(y, m, 1)
-        if month_start >= end and (y, m) != (start.year, start.month):
-            break
-        out.append(f"{y:04d}{m:02d}")
-        if m == 12:
-            y, m = y + 1, 1
-        else:
-            m += 1
+def parse_datetime(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00")).replace(tzinfo=None)
+
+
+def hourly_timestamps(start: datetime, end: datetime) -> list[datetime]:
+    if end <= start:
+        raise ValueError("end_date must be after start_date")
+    if any((start.minute, start.second, start.microsecond, end.minute, end.second, end.microsecond)):
+        raise ValueError("ELITE requests must start/end on exact hourly boundaries")
+
+    out: list[datetime] = []
+    current = start
+    while current < end:
+        out.append(current)
+        current += timedelta(hours=1)
     return out
 
 
@@ -130,89 +136,29 @@ def download_http(url: str, path: Path, size: int = 0, checksum: str | None = No
     path.parent.mkdir(parents=True, exist_ok=True)
     existing = path.stat().st_size if path.exists() else 0
     headers = {"Range": f"bytes={existing}-"} if existing else {}
+
     with requests.get(url, headers=headers, stream=True, timeout=120) as r:
         r.raise_for_status()
         append = bool(existing and r.status_code == 206)
-        with path.open("ab" if append else "wb") as f:
+        with path.open("ab" if append else "wb") as dst:
             for chunk in r.iter_content(8 * 1024 * 1024):
                 if chunk:
-                    f.write(chunk)
+                    dst.write(chunk)
 
     if size and path.stat().st_size != size:
-        raise RuntimeError(f"Size mismatch for {path.name}")
+        raise RuntimeError(
+            f"Size mismatch for {path.name}: got {path.stat().st_size}, expected {size}"
+        )
 
     if checksum and ":" in checksum:
         algo, expected = checksum.split(":", 1)
         if algo.lower() == "md5":
             h = hashlib.md5()
-            with path.open("rb") as f:
-                for chunk in iter(lambda: f.read(8 * 1024 * 1024), b""):
+            with path.open("rb") as src:
+                for chunk in iter(lambda: src.read(8 * 1024 * 1024), b""):
                     h.update(chunk)
             if h.hexdigest().lower() != expected.lower():
                 raise RuntimeError(f"Checksum mismatch for {path.name}")
-
-
-def _credentials_from_env():
-    raw = os.getenv("GCP_SERVICE_ACCOUNT_JSON", "")
-    raw_b64 = os.getenv("GCP_SERVICE_ACCOUNT_JSON_BASE64", "")
-    if not raw and raw_b64:
-        raw = base64.b64decode(raw_b64).decode("utf-8")
-    if not raw:
-        return None, None
-    info = json.loads(raw)
-    credentials = service_account.Credentials.from_service_account_info(
-        info,
-        scopes=["https://www.googleapis.com/auth/cloud-platform"],
-    )
-    return credentials, info.get("project_id")
-
-
-class ObjectStore:
-    """Optional long-lived GCS backing store."""
-
-    def __init__(self) -> None:
-        self.bucket_name = (
-            os.getenv("REMOTE_DATA_BUCKET", "").strip()
-            or os.getenv("GEE_GCS_BUCKET", "").strip()
-        )
-        self.enabled = bool(self.bucket_name)
-        self.client = None
-        self.bucket = None
-        if self.enabled:
-            credentials, project = _credentials_from_env()
-            self.client = storage.Client(project=project, credentials=credentials)
-            self.bucket = self.client.bucket(self.bucket_name)
-
-    def uri(self, key: str) -> str | None:
-        return f"gs://{self.bucket_name}/{key}" if self.enabled else None
-
-    def exists(self, key: str) -> bool:
-        if not self.enabled:
-            return False
-        return bool(self.bucket.blob(key).exists(self.client))
-
-    def download(self, key: str, path: Path) -> bool:
-        if not self.enabled or not self.exists(key):
-            return False
-        path.parent.mkdir(parents=True, exist_ok=True)
-        self.bucket.blob(key).download_to_filename(str(path))
-        return True
-
-    def upload(
-        self,
-        path: Path,
-        key: str,
-        *,
-        content_type: str | None = None,
-        metadata: dict[str, str] | None = None,
-    ) -> str | None:
-        if not self.enabled:
-            return None
-        blob = self.bucket.blob(key)
-        if metadata:
-            blob.metadata = metadata
-        blob.upload_from_filename(str(path), content_type=content_type)
-        return self.uri(key)
 
 
 def datasets(group, prefix: str = ""):
@@ -293,6 +239,7 @@ def src_transform(width: int, height: int) -> Affine:
 def lst_kelvin(path: Path):
     raw, ds_name, attrs = read_lst(path)
     invalid = ~np.isfinite(raw)
+
     for key in ("_FillValue", "FillValue", "fill_value", "missing_value"):
         v = attrs.get(key)
         if hasattr(v, "tolist"):
@@ -308,37 +255,75 @@ def lst_kelvin(path: Path):
     return values, ds_name
 
 
-def write_full_disk_cache(hdf_path: Path, out: Path) -> dict[str, Any]:
+def china_cache_path(ts: datetime) -> Path:
+    return (
+        Path("data")
+        / "elite"
+        / "china"
+        / f"{ts:%Y}"
+        / f"{ts:%m}"
+        / f"{ts:%d}"
+        / f"ELITE_FY4A_LST_{ts:%Y%m%d_%H%M}_CHINA_K.tif"
+    )
+
+
+def write_china_cache(hdf_path: Path, out: Path, ts: datetime) -> dict[str, Any]:
     values, ds_name = lst_kelvin(hdf_path)
+    xmin, ymin, xmax, ymax = CHINA_BBOX
+    width = max(1, math.ceil((xmax - xmin) / OUT_RES))
+    height = max(1, math.ceil((ymax - ymin) / OUT_RES))
+    transform = from_origin(xmin, ymax, OUT_RES, OUT_RES)
+
+    dest_kelvin = np.full((height, width), FLOAT_NODATA, dtype="float32")
+    reproject(
+        source=values,
+        destination=dest_kelvin,
+        src_transform=src_transform(values.shape[1], values.shape[0]),
+        src_crs=src_crs(),
+        src_nodata=np.nan,
+        dst_transform=transform,
+        dst_crs="EPSG:4326",
+        dst_nodata=FLOAT_NODATA,
+        resampling=Resampling.nearest,
+    )
+
+    valid = dest_kelvin != FLOAT_NODATA
+    scaled = np.full((height, width), CACHE_NODATA, dtype="uint16")
+    scaled[valid] = np.clip(
+        np.rint(dest_kelvin[valid] / CACHE_SCALE),
+        0,
+        int(CACHE_NODATA) - 1,
+    ).astype("uint16")
+
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_suffix(".tmp.tif")
-    data = np.where(np.isfinite(values), values, NODATA).astype("float32")
-
     with rasterio.open(
         tmp,
         "w",
         driver="GTiff",
-        height=data.shape[0],
-        width=data.shape[1],
+        height=height,
+        width=width,
         count=1,
-        dtype="float32",
-        crs=src_crs(),
-        transform=src_transform(data.shape[1], data.shape[0]),
-        nodata=NODATA,
+        dtype="uint16",
+        crs="EPSG:4326",
+        transform=transform,
+        nodata=int(CACHE_NODATA),
         compress="deflate",
-        predictor=3,
+        predictor=2,
         tiled=True,
         blockxsize=512,
         blockysize=512,
     ) as dst:
-        dst.write(data, 1)
+        dst.write(scaled, 1)
         dst.set_band_description(1, "ELITE_FY4A_AGRI_LST")
         dst.update_tags(
             source_dataset=ds_name,
-            scale_factor="0.01",
-            storage_layer="cache",
-            cache_unit="kelvin",
-            grid="FY4A_AGRI_4KM_native_geostationary",
+            timestamp=ts.isoformat(),
+            scale_factor=str(CACHE_SCALE),
+            unit="kelvin",
+            cache_extent="china",
+            cache_bbox=",".join(str(x) for x in CHINA_BBOX),
+            source_grid="FY4A_AGRI_4KM_native_geostationary",
         )
 
     try:
@@ -356,26 +341,44 @@ def write_full_disk_cache(hdf_path: Path, out: Path) -> dict[str, Any]:
 
     return {
         "path": str(out),
-        "shape": [int(data.shape[0]), int(data.shape[1])],
-        "dataset": ds_name,
+        "size_bytes": out.stat().st_size,
+        "width": width,
+        "height": height,
+        "valid_pixels": int(valid.sum()),
+        "source_dataset": ds_name,
     }
 
 
-def crop_cache_to_roi(
+def validate_roi_bbox(bbox: list[float]) -> None:
+    if len(bbox) != 4:
+        raise ValueError("bbox must be xmin,ymin,xmax,ymax")
+    xmin, ymin, xmax, ymax = bbox
+    if not (-180 <= xmin < xmax <= 180 and -90 <= ymin < ymax <= 90):
+        raise ValueError("Invalid WGS84 bbox")
+
+    cxmin, cymin, cxmax, cymax = CHINA_BBOX
+    if xmin < cxmin or ymin < cymin or xmax > cxmax or ymax > cymax:
+        raise ValueError(
+            f"ROI must be inside the repository China cache bbox {CHINA_BBOX}; got {bbox}"
+        )
+
+
+def crop_china_cache(
     cache_path: Path,
     out: Path,
     bbox: list[float],
     output_unit: str,
 ) -> dict[str, Any]:
     xmin, ymin, xmax, ymax = bbox
-    width = max(1, math.ceil((xmax - xmin) / ROI_RES))
-    height = max(1, math.ceil((ymax - ymin) / ROI_RES))
-    transform = from_origin(xmin, ymax, ROI_RES, ROI_RES)
-    dest = np.full((height, width), NODATA, dtype="float32")
+    width = max(1, math.ceil((xmax - xmin) / OUT_RES))
+    height = max(1, math.ceil((ymax - ymin) / OUT_RES))
+    transform = from_origin(xmin, ymax, OUT_RES, OUT_RES)
+    dest = np.full((height, width), FLOAT_NODATA, dtype="float32")
 
     with rasterio.open(cache_path) as src:
-        source = src.read(1).astype("float32")
-        source = np.where(source == src.nodata, np.nan, source)
+        raw = src.read(1)
+        source = raw.astype("float32") * CACHE_SCALE
+        source[raw == src.nodata] = np.nan
         reproject(
             source=source,
             destination=dest,
@@ -384,11 +387,11 @@ def crop_cache_to_roi(
             src_nodata=np.nan,
             dst_transform=transform,
             dst_crs="EPSG:4326",
-            dst_nodata=NODATA,
+            dst_nodata=FLOAT_NODATA,
             resampling=Resampling.nearest,
         )
 
-    valid = dest != NODATA
+    valid = dest != FLOAT_NODATA
     if output_unit == "celsius":
         dest[valid] -= 273.15
 
@@ -403,7 +406,7 @@ def crop_cache_to_roi(
         dtype="float32",
         crs="EPSG:4326",
         transform=transform,
-        nodata=NODATA,
+        nodata=FLOAT_NODATA,
         compress="deflate",
         predictor=3,
         tiled=True,
@@ -412,8 +415,8 @@ def crop_cache_to_roi(
         dst.set_band_description(1, "ELITE_FY4A_AGRI_LST")
         dst.update_tags(
             output_unit=output_unit,
-            storage_layer="derived",
-            source_cache_unit="kelvin",
+            source_cache=str(cache_path),
+            cache_scale_factor=str(CACHE_SCALE),
             bbox=",".join(str(x) for x in bbox),
         )
 
@@ -436,109 +439,31 @@ def bbox_hash(bbox: list[float]) -> str:
     return hashlib.sha1(canonical.encode("utf-8")).hexdigest()[:10]
 
 
-def raw_key(ym: str) -> str:
-    return f"raw/elite/{ym[:4]}/{ym[4:6]}/{ym}.zip"
+def load_index(path: Path) -> dict[str, Any]:
+    if path.exists():
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {
+        "product": "ELITE FY-4A/AGRI hourly 4 km seamless LST",
+        "storage": "GitHub repository China cache",
+        "bbox": CHINA_BBOX,
+        "crs": "EPSG:4326",
+        "resolution_degrees": OUT_RES,
+        "dtype": "uint16",
+        "scale_factor": CACHE_SCALE,
+        "unit": "kelvin",
+        "hours": {},
+    }
 
 
-def cache_key(ts: datetime) -> str:
-    return (
-        f"cache/elite/{ts:%Y/%m/%d}/"
-        f"ELITE_FY4A_LST_{ts:%Y%m%d_%H%M}_FULLDISK_K.tif"
+def save_index(path: Path, index: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(index, indent=2, ensure_ascii=False, sort_keys=True),
+        encoding="utf-8",
     )
-
-
-def derived_key(region_id: str, ts: datetime, output_unit: str) -> str:
-    suffix = "C" if output_unit == "celsius" else "K"
-    return (
-        f"derived/elite/{region_id}/{ts:%Y/%m/%d}/"
-        f"ELITE_FY4A_LST_{ts:%Y%m%d_%H%M}_{suffix}.tif"
-    )
-
-
-def ensure_raw_archive(
-    store: ObjectStore,
-    ym: str,
-    work_dir: Path,
-) -> tuple[Path, str]:
-    local = work_dir / "raw" / f"{ym}.zip"
-    key = raw_key(ym)
-    if store.download(key, local):
-        return local, "gcs_hit"
-
-    payload = record(int(ym[:4]))
-    source_entry = file_entry(payload, f"{ym}.zip")
-    download_http(
-        source_entry["url"],
-        local,
-        source_entry["size"],
-        source_entry["checksum"],
-    )
-    store.upload(
-        local,
-        key,
-        content_type="application/zip",
-        metadata={
-            "source": "Zenodo",
-            "source_checksum": str(source_entry.get("checksum") or ""),
-            "year_month": ym,
-        },
-    )
-    return local, "zenodo_download"
-
-
-def matching_infos(
-    archive: Path,
-    start: datetime,
-    end: datetime,
-) -> tuple[list[tuple[zipfile.ZipInfo, datetime]], int, list[str]]:
-    matches: list[tuple[zipfile.ZipInfo, datetime]] = []
-    candidate_count = 0
-    samples: list[str] = []
-    with zipfile.ZipFile(archive) as zf:
-        for info in zf.infolist():
-            if info.is_dir() or Path(info.filename).suffix.lower() not in {".hdf", ".h5", ".hdf5", ".he5"}:
-                continue
-            candidate_count += 1
-            if len(samples) < 10:
-                samples.append(info.filename)
-            ts = parse_ts(info.filename)
-            if ts is not None and start <= ts < end:
-                matches.append((info, ts))
-    return matches, candidate_count, samples
-
-
-def ensure_cache(
-    store: ObjectStore,
-    zf: zipfile.ZipFile,
-    info: zipfile.ZipInfo,
-    ts: datetime,
-    work_dir: Path,
-) -> tuple[Path, str, str | None]:
-    local_cache = work_dir / "cache" / f"ELITE_FY4A_LST_{ts:%Y%m%d_%H%M}_FULLDISK_K.tif"
-    key = cache_key(ts)
-
-    if store.download(key, local_cache):
-        return local_cache, "cache_hit", store.uri(key)
-
-    hdf = work_dir / "hdf" / Path(info.filename).name
-    hdf.parent.mkdir(parents=True, exist_ok=True)
-    with zf.open(info) as src, hdf.open("wb") as dst:
-        shutil.copyfileobj(src, dst, 8 * 1024 * 1024)
-
-    write_full_disk_cache(hdf, local_cache)
-    hdf.unlink(missing_ok=True)
-    uri = store.upload(
-        local_cache,
-        key,
-        content_type="image/tiff",
-        metadata={
-            "product": "ELITE FY-4A AGRI hourly 4 km LST",
-            "timestamp": ts.isoformat(),
-            "unit": "kelvin",
-            "storage_layer": "cache",
-        },
-    )
-    return local_cache, "cache_created", uri
 
 
 def main() -> None:
@@ -550,122 +475,117 @@ def main() -> None:
     p.add_argument("--region-name", default="")
     args = p.parse_args()
 
-    start = datetime.fromisoformat(args.start_date.replace("Z", "+00:00")).replace(tzinfo=None)
-    end = datetime.fromisoformat(args.end_date.replace("Z", "+00:00")).replace(tzinfo=None)
-    if end <= start:
-        raise ValueError("end_date must be after start_date")
+    start = parse_datetime(args.start_date)
+    end = parse_datetime(args.end_date)
+    requested_hours = hourly_timestamps(start, end)
 
     bbox = [float(x) for x in args.bbox.split(",")]
-    if len(bbox) != 4:
-        raise ValueError("bbox must be xmin,ymin,xmax,ymax")
-    xmin, ymin, xmax, ymax = bbox
-    if not (-180 <= xmin < xmax <= 180 and -90 <= ymin < ymax <= 90):
-        raise ValueError("Invalid WGS84 bbox")
+    validate_roi_bbox(bbox)
 
     region_slug = slugify(args.region_name) if args.region_name else "roi"
     region_id = f"{region_slug}-{bbox_hash(bbox)}"
 
     output_root = Path("output")
     work_dir = output_root / "work"
-    result_dir = output_root / "derived"
-    store = ObjectStore()
+    result_dir = output_root / "derived" / region_id
+    index_path = Path("data") / "metadata" / "elite-index.json"
+    index = load_index(index_path)
 
-    outputs: list[dict[str, Any]] = []
-    raw_events: list[dict[str, Any]] = []
     cache_hits = 0
-    cache_created = 0
-    derived_hits = 0
-    derived_created = 0
-    archive_candidate_count = 0
-    archive_samples: list[str] = []
+    cache_created: list[dict[str, Any]] = []
+    archive_downloads: list[dict[str, Any]] = []
 
-    for ym in months(start, end):
-        archive, raw_source = ensure_raw_archive(store, ym, work_dir)
-        raw_events.append(
+    missing_by_month: dict[str, list[datetime]] = {}
+    for ts in requested_hours:
+        cache = china_cache_path(ts)
+        if cache.exists():
+            cache_hits += 1
+            index["hours"][ts.isoformat()] = str(cache)
+        else:
+            missing_by_month.setdefault(f"{ts:%Y%m}", []).append(ts)
+
+    for ym, missing_hours in sorted(missing_by_month.items()):
+        payload = record(int(ym[:4]))
+        entry = file_entry(payload, f"{ym}.zip")
+        archive = work_dir / "raw" / f"{ym}.zip"
+        download_http(entry["url"], archive, entry["size"], entry["checksum"])
+        archive_downloads.append(
             {
                 "year_month": ym,
-                "source": raw_source,
-                "local_path": str(archive),
-                "remote_uri": store.uri(raw_key(ym)),
+                "source": "zenodo",
+                "size_bytes": archive.stat().st_size,
+                "temporary": True,
             }
         )
 
-        matches, candidate_count, samples = matching_infos(archive, start, end)
-        archive_candidate_count += candidate_count
-        archive_samples.extend(x for x in samples if x not in archive_samples)
-        if not matches:
-            continue
-
+        wanted = set(missing_hours)
+        found: dict[datetime, zipfile.ZipInfo] = {}
         with zipfile.ZipFile(archive) as zf:
-            for info, ts in matches:
-                d_key = derived_key(region_id, ts, args.output_unit)
-                out = (
-                    result_dir
-                    / region_id
-                    / f"ELITE_FY4A_LST_{ts:%Y%m%d_%H%M}_{'C' if args.output_unit == 'celsius' else 'K'}.tif"
-                )
-
-                if store.download(d_key, out):
-                    derived_hits += 1
-                    outputs.append(
-                        {
-                            "timestamp": ts.isoformat(),
-                            "path": str(out),
-                            "remote_uri": store.uri(d_key),
-                            "derived_status": "derived_hit",
-                        }
-                    )
+            for info in zf.infolist():
+                if info.is_dir() or Path(info.filename).suffix.lower() not in {
+                    ".hdf",
+                    ".h5",
+                    ".hdf5",
+                    ".he5",
+                }:
                     continue
+                ts = parse_ts(info.filename)
+                if ts in wanted:
+                    found[ts] = info
 
-                cache_path, cache_status, cache_uri = ensure_cache(
-                    store, zf, info, ts, work_dir
+            missing_in_archive = sorted(wanted - set(found))
+            if missing_in_archive:
+                raise RuntimeError(
+                    "Requested ELITE hours not found in archive: "
+                    + ", ".join(x.isoformat() for x in missing_in_archive)
                 )
-                if cache_status == "cache_hit":
-                    cache_hits += 1
-                else:
-                    cache_created += 1
 
-                stats = crop_cache_to_roi(
-                    cache_path,
-                    out,
-                    bbox,
-                    args.output_unit,
-                )
-                derived_created += 1
-                remote_uri = store.upload(
-                    out,
-                    d_key,
-                    content_type="image/tiff",
-                    metadata={
-                        "region_id": region_id,
-                        "timestamp": ts.isoformat(),
-                        "output_unit": args.output_unit,
-                        "bbox": ",".join(str(x) for x in bbox),
-                        "source_cache": cache_uri or cache_key(ts),
-                        "storage_layer": "derived",
-                    },
-                )
-                outputs.append(
+            for ts in sorted(missing_hours):
+                info = found[ts]
+                hdf = work_dir / "hdf" / Path(info.filename).name
+                hdf.parent.mkdir(parents=True, exist_ok=True)
+                with zf.open(info) as src, hdf.open("wb") as dst:
+                    shutil.copyfileobj(src, dst, 8 * 1024 * 1024)
+
+                cache = china_cache_path(ts)
+                stats = write_china_cache(hdf, cache, ts)
+                cache_created.append(
                     {
                         "timestamp": ts.isoformat(),
-                        "path": str(out),
-                        "remote_uri": remote_uri,
-                        "cache_uri": cache_uri,
-                        "cache_status": cache_status,
-                        "derived_status": "derived_created",
-                        "valid_pixels": stats["valid_pixels"],
-                        "min": stats["min"],
-                        "max": stats["max"],
+                        **stats,
                     }
                 )
-
-                cache_path.unlink(missing_ok=True)
+                index["hours"][ts.isoformat()] = str(cache)
+                hdf.unlink(missing_ok=True)
 
         archive.unlink(missing_ok=True)
 
+    if cache_created:
+        index["updated_at"] = datetime.utcnow().isoformat() + "Z"
+        save_index(index_path, index)
+    elif not index_path.exists():
+        save_index(index_path, index)
+
+    outputs: list[dict[str, Any]] = []
+    for ts in requested_hours:
+        cache = china_cache_path(ts)
+        if not cache.exists():
+            raise RuntimeError(f"China cache was not produced: {cache}")
+
+        suffix = "C" if args.output_unit == "celsius" else "K"
+        out = result_dir / f"ELITE_FY4A_LST_{ts:%Y%m%d_%H%M}_{suffix}.tif"
+        stats = crop_china_cache(cache, out, bbox, args.output_unit)
+        outputs.append(
+            {
+                "timestamp": ts.isoformat(),
+                "cache_path": str(cache),
+                **stats,
+            }
+        )
+
     result = {
         "product": "ELITE FY-4A/AGRI hourly 4 km seamless LST",
-        "architecture": "raw -> cache -> derived",
+        "architecture": "Zenodo temporary archive -> GitHub China cache -> ROI artifact",
         "start_date": args.start_date,
         "end_date": args.end_date,
         "bbox": bbox,
@@ -674,23 +594,19 @@ def main() -> None:
         "output_unit": args.output_unit,
         "count": len(outputs),
         "files": outputs,
-        "storage": {
-            "persistent": store.enabled,
-            "backend": "gcs" if store.enabled else "ephemeral-local",
-            "bucket": store.bucket_name or None,
-            "raw_prefix": "raw/elite/",
-            "cache_prefix": "cache/elite/",
-            "derived_prefix": f"derived/elite/{region_id}/",
-        },
-        "stats": {
-            "raw_events": raw_events,
+        "repository_cache": {
+            "root": "data/elite/china",
+            "china_bbox": CHINA_BBOX,
+            "crs": "EPSG:4326",
+            "resolution_degrees": OUT_RES,
+            "dtype": "uint16",
+            "scale_factor": CACHE_SCALE,
+            "unit": "kelvin",
             "cache_hits": cache_hits,
-            "cache_created": cache_created,
-            "derived_hits": derived_hits,
-            "derived_created": derived_created,
-            "archive_candidate_hdf_count": archive_candidate_count,
-            "archive_filename_samples": archive_samples[:10],
+            "cache_created": len(cache_created),
+            "created_files": cache_created,
         },
+        "temporary_archive_downloads": archive_downloads,
     }
 
     output_root.mkdir(exist_ok=True)
@@ -702,11 +618,7 @@ def main() -> None:
     shutil.rmtree(work_dir, ignore_errors=True)
 
     if not outputs:
-        raise RuntimeError(
-            "ELITE archive processing produced zero outputs. "
-            f"candidate_hdf_count={archive_candidate_count}; "
-            f"sample_names={archive_samples[:5]}"
-        )
+        raise RuntimeError("ELITE processing produced zero ROI outputs")
 
 
 if __name__ == "__main__":
