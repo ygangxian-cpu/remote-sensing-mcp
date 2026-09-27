@@ -1,0 +1,15 @@
+[project]
+name = "remote-sensing-mcp"
+version = "0.3.0"
+description = "Remote MCP gateway for Google Earth Engine and ELITE FY-4A LST."
+requires-python = ">=3.12"
+dependencies = [
+  "mcp[cli]>=2.0,<3",
+  "earthengine-api>=1.5,<2",
+  "requests>=2.32,<3",
+  "google-auth>=2.35,<3",
+  "fastapi>=0.115,<1"
+]
+
+[tool.vercel]
+framework = "fastapi"
