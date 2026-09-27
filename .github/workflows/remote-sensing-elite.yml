@@ -20,6 +20,11 @@ on:
         description: xmin,ymin,xmax,ymax in EPSG:4326
         required: true
         type: string
+      region_name:
+        description: Stable human-readable ROI name, e.g. zhangye or beijing
+        required: false
+        default: ""
+        type: string
       output_unit:
         description: celsius or kelvin
         required: true
@@ -29,9 +34,6 @@ on:
           - celsius
           - kelvin
 
-
-
-
 permissions:
   contents: read
 
@@ -39,6 +41,9 @@ jobs:
   elite:
     runs-on: ubuntu-latest
     timeout-minutes: 330
+    env:
+      REMOTE_DATA_BUCKET: "${{ secrets.REMOTE_DATA_BUCKET }}"
+      GCP_SERVICE_ACCOUNT_JSON_BASE64: "${{ secrets.GCP_SERVICE_ACCOUNT_JSON_BASE64 }}"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -49,27 +54,37 @@ jobs:
           python-version: "3.12"
 
       - name: Install ELITE worker dependencies
-        run: pip install requests numpy h5py pyhdf rasterio affine
+        run: >-
+          pip install
+          requests
+          numpy
+          h5py
+          pyhdf
+          rasterio
+          affine
+          google-cloud-storage
+          google-auth
 
-      - name: Download, geolocate and crop ELITE FY-4A LST
+      - name: Process ELITE FY-4A LST
         run: >-
           python worker.py
           --start-date '${{ inputs.start_date }}'
           --end-date '${{ inputs.end_date }}'
           --bbox '${{ inputs.bbox }}'
+          --region-name '${{ inputs.region_name }}'
           --output-unit '${{ inputs.output_unit }}'
 
-      - name: Remove cache before artifact upload
+      - name: Remove ephemeral work files
         if: always()
-        run: rm -rf output/cache output/hdf
+        run: rm -rf output/work
 
-      - name: Upload clipped GeoTIFFs
+      - name: Upload derived ROI GeoTIFFs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: "${{ inputs.job_key }}"
           path: |
-            output/elite/**/*.tif
+            output/derived/**/*.tif
             output/result.json
           if-no-files-found: warn
           retention-days: 1
