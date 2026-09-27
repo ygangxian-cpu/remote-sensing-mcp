@@ -1,7 +1,7 @@
 [project]
 name = "remote-sensing-mcp"
-version = "0.7.0"
-description = "Remote MCP gateway for ELITE FY-4A, ERA5-Land, MODIS LST and Landsat workflows."
+version = "0.10.0"
+description = "Remote MCP gateway for ELITE FY-4A, ERA5-Land, QA-preserving MODIS/Landsat and LST downscaling workflows."
 requires-python = ">=3.12"
 dependencies = [
   "mcp[cli]>=2.0,<3",
