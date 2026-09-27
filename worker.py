@@ -171,7 +171,10 @@ class ObjectStore:
     """Optional long-lived GCS backing store."""
 
     def __init__(self) -> None:
-        self.bucket_name = os.getenv("REMOTE_DATA_BUCKET", "").strip()
+        self.bucket_name = (
+            os.getenv("REMOTE_DATA_BUCKET", "").strip()
+            or os.getenv("GEE_GCS_BUCKET", "").strip()
+        )
         self.enabled = bool(self.bucket_name)
         self.client = None
         self.bucket = None
