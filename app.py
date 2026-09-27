@@ -1049,6 +1049,7 @@ def health():
     return {
         "ok": True,
         "service": "remote-sensing-mcp",
+        "version": "0.8.1",
         "vercel": bool(os.getenv("VERCEL")),
         "ee_configured": bool(
             os.getenv("EE_SERVICE_ACCOUNT_JSON") or os.getenv("EE_SERVICE_ACCOUNT_JSON_BASE64")
