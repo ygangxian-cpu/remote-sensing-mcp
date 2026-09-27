@@ -48,10 +48,33 @@
         39.0667
       ],
       "hours": {
-        "2019-09-24T00:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_0000_UTC.tif"
+        "2019-09-24T00:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_0000_UTC.tif",
+        "2019-09-24T01:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_0100_UTC.tif",
+        "2019-09-24T02:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_0200_UTC.tif",
+        "2019-09-24T03:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_0300_UTC.tif",
+        "2019-09-24T04:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_0400_UTC.tif",
+        "2019-09-24T05:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_0500_UTC.tif",
+        "2019-09-24T06:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_0600_UTC.tif",
+        "2019-09-24T07:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_0700_UTC.tif",
+        "2019-09-24T08:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_0800_UTC.tif",
+        "2019-09-24T09:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_0900_UTC.tif",
+        "2019-09-24T10:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_1000_UTC.tif",
+        "2019-09-24T11:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_1100_UTC.tif",
+        "2019-09-24T12:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_1200_UTC.tif",
+        "2019-09-24T13:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_1300_UTC.tif",
+        "2019-09-24T14:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_1400_UTC.tif",
+        "2019-09-24T15:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_1500_UTC.tif",
+        "2019-09-24T16:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_1600_UTC.tif",
+        "2019-09-24T17:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_1700_UTC.tif",
+        "2019-09-24T18:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_1800_UTC.tif",
+        "2019-09-24T19:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_1900_UTC.tif",
+        "2019-09-24T20:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_2000_UTC.tif",
+        "2019-09-24T21:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_2100_UTC.tif",
+        "2019-09-24T22:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_2200_UTC.tif",
+        "2019-09-24T23:00:00": "data/era5_land/v1/zhangye-c6c86510ae/2019/09/24/ERA5LAND_20190924_2300_UTC.tif"
       },
       "region_name": "zhangye"
     }
   },
-  "updated_at": "2026-09-27T07:40:51.966537Z"
+  "updated_at": "2026-09-27T08:38:15.143302Z"
 }
