@@ -224,6 +224,16 @@ def _github_landsat_config() -> tuple[str, str, str, str]:
     return repo, workflow, ref, token
 
 
+def _github_scaling_config() -> tuple[str, str, str, str]:
+    repo = os.getenv("GITHUB_WORKFLOW_REPOSITORY", "ygangxian-cpu/remote-sensing-mcp")
+    workflow = os.getenv("GITHUB_SCALING_WORKFLOW_ID", "remote-sensing-scaling-factors.yml")
+    ref = os.getenv("GITHUB_WORKFLOW_REF", "main")
+    token = os.getenv("GITHUB_WORKFLOW_TOKEN", "")
+    if not token:
+        raise RuntimeError("GitHub Actions remote dispatch is not configured.")
+    return repo, workflow, ref, token
+
+
 @mcp.tool()
 def service_status() -> dict[str, Any]:
     """Show which online capabilities are configured."""
@@ -238,9 +248,11 @@ def service_status() -> dict[str, Any]:
         "era5_land_worker_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
         "modis_lst_worker_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
         "landsat_worker_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
+        "scaling_factors_worker_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
         "era5_land_cache_backend": "github_repository_roi",
         "modis_lst_cache_backend": "github_repository_roi",
         "landsat_cache_backend": "github_repository_roi",
+        "scaling_factors_cache_backend": "github_repository_roi",
         "elite_persistent_storage_configured": True,
         "elite_cache_backend": "github_repository",
         "gcs_bucket_configured": bool(os.getenv("GEE_GCS_BUCKET")),
@@ -715,6 +727,138 @@ def landsat_job_status(job_key: str) -> dict[str, Any]:
 
 
 @mcp.tool()
+def scaling_factors_schema() -> dict[str, Any]:
+    """Describe the LST downscaling scaling-factor library."""
+    return {
+        "terrain": {
+            "dataset": "USGS/SRTMGL1_003",
+            "bands": ["DEM_M", "SLOPE_DEG", "ASPECT_DEG"],
+            "target_scale_m": 100,
+        },
+        "landcover": {
+            "dataset": "ESA/WorldCover/v200",
+            "band": "LANDCOVER",
+            "native_scale_m": 10,
+            "target_scale_m": 100,
+            "reference_year": 2021,
+            "note": "quasi-static factor; reference year differs from the 2019 experiment",
+        },
+        "surface": {
+            "dataset": "COPERNICUS/S2_SR_HARMONIZED",
+            "target_scale_m": 100,
+            "composite": "median over requested period",
+            "bands": [
+                "BLUE",
+                "GREEN",
+                "RED",
+                "NIR",
+                "SWIR1",
+                "SWIR2",
+                "NDVI",
+                "EVI",
+                "FVC",
+                "MNDWI",
+                "NDBI",
+                "BSI",
+                "NDMI",
+            ],
+        },
+        "albedo": {
+            "dataset": "MODIS/061/MCD43A3",
+            "target_scale_m": 500,
+            "bands": ["BSA_SHORTWAVE", "WSA_SHORTWAVE", "ALBEDO_QA"],
+            "quality_rule": "BRDF_Albedo_Band_Mandatory_Quality_shortwave <= 1",
+            "blue_sky_albedo": "not computed here; combine BSA/WSA with diffuse fraction later",
+        },
+        "storage": "data/scaling_factors/v1/<region>-<bbox_hash>/...",
+    }
+
+
+@mcp.tool()
+def submit_scaling_factors_job(
+    start_date: str,
+    end_date: str,
+    bbox: list[float],
+    region_name: str = "",
+) -> dict[str, Any]:
+    """Build or reuse terrain, land-cover, spectral-index and albedo factors."""
+    if len(bbox) != 4:
+        raise ValueError("bbox must be [xmin,ymin,xmax,ymax]")
+    start = datetime.fromisoformat(start_date[:10])
+    end = datetime.fromisoformat(end_date[:10])
+    days = (end - start).days
+    if days < 1:
+        raise ValueError("end_date must be after start_date")
+    if days > 62:
+        raise ValueError("One scaling-factor job is limited to 62 days")
+
+    repo, workflow, ref, token = _github_scaling_config()
+    job_key = f"scaling-{int(time.time())}-{uuid.uuid4().hex[:8]}"
+    response = requests.post(
+        f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}/dispatches",
+        timeout=30,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+        json={
+            "ref": ref,
+            "inputs": {
+                "job_key": job_key,
+                "start_date": start_date,
+                "end_date": end_date,
+                "bbox": ",".join(str(float(x)) for x in bbox),
+                "region_name": region_name,
+            },
+        },
+    )
+    if response.status_code != 204:
+        raise RuntimeError(
+            f"GitHub scaling-factor dispatch failed: {response.status_code} {response.text[:300]}"
+        )
+    return {
+        "submitted": True,
+        "job_key": job_key,
+        "workflow": workflow,
+        "region_name": region_name or None,
+        "days": days,
+        "status_tool": "scaling_factors_job_status",
+    }
+
+
+@mcp.tool()
+def scaling_factors_job_status(job_key: str) -> dict[str, Any]:
+    """Look up a submitted scaling-factor GitHub Actions job."""
+    repo, workflow, _, token = _github_scaling_config()
+    response = requests.get(
+        f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}/runs",
+        params={"event": "workflow_dispatch", "per_page": 50},
+        timeout=30,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    response.raise_for_status()
+    for run in response.json().get("workflow_runs", []):
+        title = str(run.get("display_title") or run.get("name") or "")
+        if job_key in title:
+            return {
+                "found": True,
+                "job_key": job_key,
+                "run_id": run.get("id"),
+                "status": run.get("status"),
+                "conclusion": run.get("conclusion"),
+                "html_url": run.get("html_url"),
+                "created_at": run.get("created_at"),
+                "updated_at": run.get("updated_at"),
+            }
+    return {"found": False, "job_key": job_key}
+
+
+@mcp.tool()
 def gee_auth_status(project: str | None = None) -> dict[str, Any]:
     """Validate the Vercel Earth Engine service-account configuration."""
     try:
@@ -868,8 +1012,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Remote Sensing MCP",
-    description="ELITE FY-4A + ERA5-Land + MODIS + Landsat remote-sensing MCP gateway",
-    version="0.7.0",
+    description="ELITE FY-4A + ERA5-Land + MODIS + Landsat + scaling factors MCP gateway",
+    version="0.8.0",
     lifespan=lifespan,
 )
 
@@ -908,6 +1052,7 @@ def health():
         "era5_land_repo_cache_enabled": True,
         "modis_lst_repo_cache_enabled": True,
         "landsat_repo_cache_enabled": True,
+        "scaling_factors_repo_cache_enabled": True,
         "auth_enabled": bool(REMOTE_TOKEN),
     }
 
