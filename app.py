@@ -392,7 +392,11 @@ def service_status() -> dict[str, Any]:
         "scaling_factors_worker_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
         "era5_land_cache_backend": "github_repository_roi",
         "modis_lst_cache_backend": "github_repository_roi",
+        "modis_lst_cache_version": "v2",
+        "modis_quality_reporting": True,
         "landsat_cache_backend": "github_repository_roi",
+        "landsat_cache_version": "v2",
+        "landsat_quality_reporting": True,
         "scaling_factors_cache_backend": "github_repository_roi",
         "job_result_download_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
         "elite_persistent_storage_configured": True,
@@ -673,7 +677,7 @@ def era5_job_status(job_key: str) -> dict[str, Any]:
 
 @mcp.tool()
 def modis_lst_schema() -> dict[str, Any]:
-    """Describe MODIS Terra/Aqua daily LST processing and QC."""
+    """Describe QA-preserving MODIS Terra/Aqua daily LST acquisition."""
     return {
         "datasets": {
             "terra": DATASETS["modis_terra_lst"],
@@ -681,11 +685,25 @@ def modis_lst_schema() -> dict[str, Any]:
         },
         "spatial_resolution": "1 km",
         "temporal_resolution": "daily product with day/night observations",
-        "bands": ["LST_DAY_C", "LST_NIGHT_C", "DAY_VIEW_TIME_LOCAL_H", "NIGHT_VIEW_TIME_LOCAL_H"],
-        "qc_rule": "bits 0-1 <= 1; bits 2-3 == 0; bits 6-7 <= 2",
+        "bands": [
+            "LST_DAY_C",
+            "LST_NIGHT_C",
+            "DAY_VIEW_TIME_LOCAL_H",
+            "NIGHT_VIEW_TIME_LOCAL_H",
+            "QC_DAY",
+            "QC_NIGHT",
+        ],
+        "download_policy": "preserve native product availability; no additional research QA mask",
+        "qa_preserved": True,
+        "recommended_strict_qc": "bits 0-1 <= 1; bits 2-3 == 0; bits 6-7 <= 2",
+        "quality_report": (
+            "result.json reports native LST coverage, strict-QC coverage, retention ratio, "
+            "mandatory-QA counts, data-quality counts and LST-error classes for day/night"
+        ),
         "lst_conversion": "DN * 0.02 - 273.15",
         "view_time_conversion": "DN * 0.1 hours local solar time",
-        "cache": "data/modis_lst/v1/<region>-<bbox_hash>/YYYY/MM/DD/{MOD11A1|MYD11A1}_YYYYMMDD_QC.tif",
+        "cache_version": "v2",
+        "cache": "data/modis_lst/v2/<region>-<bbox_hash>/YYYY/MM/DD/{MOD11A1|MYD11A1}_YYYYMMDD_LST_QA.tif",
     }
 
 
@@ -697,7 +715,7 @@ def submit_modis_lst_job(
     region_name: str = "",
     platforms: str = "terra,aqua",
 ) -> dict[str, Any]:
-    """Submit Terra/Aqua MODIS daily LST acquisition and QC processing."""
+    """Submit QA-preserving Terra/Aqua MODIS daily LST acquisition."""
     if len(bbox) != 4:
         raise ValueError("bbox must be [xmin,ymin,xmax,ymax]")
     requested = [x.strip().lower() for x in platforms.split(",") if x.strip()]
@@ -771,19 +789,39 @@ def modis_job_status(job_key: str) -> dict[str, Any]:
 
 @mcp.tool()
 def landsat_schema() -> dict[str, Any]:
-    """Describe Landsat 8/9 Collection 2 Level 2 preprocessing."""
+    """Describe QA-preserving Landsat 8/9 Collection 2 Level 2 acquisition."""
     return {
         "datasets": {
             "L8": DATASETS["landsat8_c2_l2"],
             "L9": DATASETS["landsat9_c2_l2"],
         },
         "spatial_resolution": "30 m",
-        "bands": ["LST_C", "ST_QA_K", "SR_B2", "SR_B3", "SR_B4", "SR_B5", "SR_B6", "SR_B7"],
+        "bands": [
+            "LST_C",
+            "ST_QA_K",
+            "SR_B2",
+            "SR_B3",
+            "SR_B4",
+            "SR_B5",
+            "SR_B6",
+            "SR_B7",
+            "QA_PIXEL",
+            "QA_RADSAT",
+        ],
         "lst_conversion": "ST_B10 * 0.00341802 + 149.0 - 273.15",
         "surface_reflectance_conversion": "SR_Bx * 0.0000275 - 0.2",
-        "qa_mask": "QA_PIXEL bits 0,1,2,3,4,5,7 == 0 and QA_RADSAT == 0",
+        "download_policy": "preserve native product availability; no additional QA mask",
+        "qa_preserved": True,
+        "water_preserved": True,
+        "recommended_clear_mask": "QA_PIXEL bits 0,1,2,3,4,5 == 0; water bit 7 is retained",
+        "qa_radsat_policy": "preserved and reported separately; not used to erase LST",
+        "quality_report": (
+            "result.json reports native LST coverage, clear-LST coverage, individual QA bit counts, "
+            "water fraction, radiometric saturation and clear-unsaturated SR coverage"
+        ),
         "processing_level": "L2SP",
-        "cache": "data/landsat_c2_l2/v1/<region>-<bbox_hash>/YYYY/MM/DD/<LANDSAT_PRODUCT_ID>_L2_QC.tif",
+        "cache_version": "v2",
+        "cache": "data/landsat_c2_l2/v2/<region>-<bbox_hash>/YYYY/MM/DD/<LANDSAT_PRODUCT_ID>_L2_RAW_QA.tif",
     }
 
 
@@ -1167,7 +1205,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Remote Sensing MCP",
     description="ELITE FY-4A + ERA5-Land + MODIS + Landsat + scaling factors MCP gateway",
-    version="0.9.0",
+    version="0.10.0",
     lifespan=lifespan,
 )
 
@@ -1196,7 +1234,7 @@ def health():
     return {
         "ok": True,
         "service": "remote-sensing-mcp",
-        "version": "0.9.0",
+        "version": "0.10.0",
         "vercel": bool(os.getenv("VERCEL")),
         "ee_configured": bool(
             os.getenv("EE_SERVICE_ACCOUNT_JSON") or os.getenv("EE_SERVICE_ACCOUNT_JSON_BASE64")
