@@ -1,5 +1,5 @@
 name: Remote Sensing Landsat Worker
-run-name: "Landsat ${{ inputs.job_key || format('landsat-smoke-{0}', github.run_id) }}"
+run-name: "Landsat ${{ inputs.job_key }}"
 
 on:
   workflow_dispatch:
@@ -30,9 +30,6 @@ on:
         default: "80"
         type: string
 
-  push:
-    branches: [main]
-    paths: [".github/landsat-smoke-trigger"]
 
 permissions:
   contents: write
@@ -49,13 +46,6 @@ jobs:
       EE_PROJECT: "${{ vars.EE_PROJECT || 'ee-ygangxian' }}"
       EE_USER_CREDENTIALS_JSON_BASE64: "${{ secrets.EE_USER_CREDENTIALS_JSON_BASE64 }}"
       EE_SERVICE_ACCOUNT_JSON_BASE64: "${{ secrets.EE_SERVICE_ACCOUNT_JSON_BASE64 }}"
-      JOB_KEY: "${{ inputs.job_key || format('landsat-smoke-{0}', github.run_id) }}"
-      START_DATE: "${{ inputs.start_date || '2021-09-29' }}"
-      END_DATE: "${{ inputs.end_date || '2021-09-30' }}"
-      BBOX: "${{ inputs.bbox || '100.1,38.7667,100.6,39.0667' }}"
-      REGION_NAME: "${{ inputs.region_name || 'zhangye' }}"
-      SATELLITES: "${{ inputs.satellites || 'L8' }}"
-      CLOUD_COVER_MAX: "${{ inputs.cloud_cover_max || '100' }}"
 
     steps:
       - uses: actions/checkout@v4
@@ -85,12 +75,12 @@ jobs:
       - name: Fetch/reuse Landsat C2 L2
         run: >-
           python landsat_worker.py
-          --start-date "$START_DATE"
-          --end-date "$END_DATE"
-          --bbox "$BBOX"
-          --region-name "$REGION_NAME"
-          --satellites "$SATELLITES"
-          --cloud-cover-max "$CLOUD_COVER_MAX"
+          --start-date '${{ inputs.start_date }}'
+          --end-date '${{ inputs.end_date }}'
+          --bbox '${{ inputs.bbox }}'
+          --region-name '${{ inputs.region_name }}'
+          --satellites '${{ inputs.satellites }}'
+          --cloud-cover-max '${{ inputs.cloud_cover_max }}'
 
       - name: Commit new Landsat cache
         run: |
@@ -98,7 +88,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add data/landsat_c2_l2 data/metadata/landsat-index.json
-            git commit -m "data: cache Landsat $REGION_NAME $START_DATE [skip vercel]"
+            git commit -m "data: cache Landsat ${{ inputs.region_name }} ${{ inputs.start_date }} [skip vercel]"
             git pull --rebase origin main
             git push origin HEAD:main
           fi
@@ -111,7 +101,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: "${{ env.JOB_KEY }}"
+          name: "${{ inputs.job_key }}"
           path: |
             output/landsat/**/*.tif
             output/result.json
