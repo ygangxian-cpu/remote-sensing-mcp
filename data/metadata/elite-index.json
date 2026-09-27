@@ -1,0 +1,19 @@
+{
+  "bbox": [
+    73.0,
+    18.0,
+    135.0,
+    54.0
+  ],
+  "crs": "EPSG:4326",
+  "dtype": "uint16",
+  "hours": {
+    "2019-09-24T00:00:00": "data/elite/china/2019/09/24/ELITE_FY4A_LST_20190924_0000_CHINA_K.tif"
+  },
+  "product": "ELITE FY-4A/AGRI hourly 4 km seamless LST",
+  "resolution_degrees": 0.035932611365,
+  "scale_factor": 0.01,
+  "storage": "GitHub repository China cache",
+  "unit": "kelvin",
+  "updated_at": "2026-09-27T06:20:30.617965Z"
+}
