@@ -1,0 +1,41 @@
+{
+  "cache_version": "v1",
+  "product": "LST downscaling scaling-factor library",
+  "regions": {
+    "zhangye-c6c86510ae": {
+      "albedo_days": {
+        "2019-09-15": "data/scaling_factors/v1/zhangye-c6c86510ae/albedo/2019/09/15/MCD43A3_20190915_BSA_WSA_QC.tif",
+        "2019-09-16": "data/scaling_factors/v1/zhangye-c6c86510ae/albedo/2019/09/16/MCD43A3_20190916_BSA_WSA_QC.tif",
+        "2019-09-17": "data/scaling_factors/v1/zhangye-c6c86510ae/albedo/2019/09/17/MCD43A3_20190917_BSA_WSA_QC.tif",
+        "2019-09-18": "data/scaling_factors/v1/zhangye-c6c86510ae/albedo/2019/09/18/MCD43A3_20190918_BSA_WSA_QC.tif",
+        "2019-09-19": "data/scaling_factors/v1/zhangye-c6c86510ae/albedo/2019/09/19/MCD43A3_20190919_BSA_WSA_QC.tif",
+        "2019-09-20": "data/scaling_factors/v1/zhangye-c6c86510ae/albedo/2019/09/20/MCD43A3_20190920_BSA_WSA_QC.tif",
+        "2019-09-21": "data/scaling_factors/v1/zhangye-c6c86510ae/albedo/2019/09/21/MCD43A3_20190921_BSA_WSA_QC.tif",
+        "2019-09-22": "data/scaling_factors/v1/zhangye-c6c86510ae/albedo/2019/09/22/MCD43A3_20190922_BSA_WSA_QC.tif",
+        "2019-09-23": "data/scaling_factors/v1/zhangye-c6c86510ae/albedo/2019/09/23/MCD43A3_20190923_BSA_WSA_QC.tif",
+        "2019-09-24": "data/scaling_factors/v1/zhangye-c6c86510ae/albedo/2019/09/24/MCD43A3_20190924_BSA_WSA_QC.tif",
+        "2019-09-25": "data/scaling_factors/v1/zhangye-c6c86510ae/albedo/2019/09/25/MCD43A3_20190925_BSA_WSA_QC.tif",
+        "2019-09-26": "data/scaling_factors/v1/zhangye-c6c86510ae/albedo/2019/09/26/MCD43A3_20190926_BSA_WSA_QC.tif",
+        "2019-09-27": "data/scaling_factors/v1/zhangye-c6c86510ae/albedo/2019/09/27/MCD43A3_20190927_BSA_WSA_QC.tif",
+        "2019-09-28": "data/scaling_factors/v1/zhangye-c6c86510ae/albedo/2019/09/28/MCD43A3_20190928_BSA_WSA_QC.tif",
+        "2019-09-29": "data/scaling_factors/v1/zhangye-c6c86510ae/albedo/2019/09/29/MCD43A3_20190929_BSA_WSA_QC.tif",
+        "2019-09-30": "data/scaling_factors/v1/zhangye-c6c86510ae/albedo/2019/09/30/MCD43A3_20190930_BSA_WSA_QC.tif"
+      },
+      "bbox": [
+        100.1,
+        38.7667,
+        100.6,
+        39.0667
+      ],
+      "region_name": "zhangye",
+      "static": {
+        "terrain": "data/scaling_factors/v1/zhangye-c6c86510ae/static/SRTM_TERRAIN_100M.tif",
+        "worldcover_2021": "data/scaling_factors/v1/zhangye-c6c86510ae/static/WORLDCOVER_2021_100M.tif"
+      },
+      "surface_periods": {
+        "2019-09-15/2019-10-01": "data/scaling_factors/v1/zhangye-c6c86510ae/surface/20190915_20190930/S2_SCALING_FACTORS_100M.tif"
+      }
+    }
+  },
+  "updated_at": "2026-09-27T08:11:28.960760Z"
+}
