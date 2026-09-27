@@ -2,6 +2,18 @@
   "cache_version": "v1",
   "product": "MODIS Terra/Aqua daily LST V6.1",
   "regions": {
+    "beijing-f6a670fe0a": {
+      "bbox": [
+        115.4,
+        39.4,
+        117.5,
+        41.1
+      ],
+      "files": {
+        "2019-09-13:terra": "data/modis_lst/v1/beijing-f6a670fe0a/2019/09/13/MOD11A1_20190913_QC.tif"
+      },
+      "region_name": "beijing"
+    },
     "zhangye-c6c86510ae": {
       "bbox": [
         100.1,
@@ -46,5 +58,5 @@
       "region_name": "zhangye"
     }
   },
-  "updated_at": "2026-09-27T07:55:03.884521Z"
+  "updated_at": "2026-09-27T09:59:17.254889Z"
 }
