@@ -33,9 +33,10 @@
         "worldcover_2021": "data/scaling_factors/v1/zhangye-c6c86510ae/static/WORLDCOVER_2021_100M.tif"
       },
       "surface_periods": {
-        "2019-09-15/2019-10-01": "data/scaling_factors/v1/zhangye-c6c86510ae/surface/20190915_20190930/LANDSAT_SCALING_FACTORS_100M.tif"
+        "2019-09-15/2019-10-01": "data/scaling_factors/v1/zhangye-c6c86510ae/surface/20190915_20190930/LANDSAT_SCALING_FACTORS_100M.tif",
+        "2019-09-24/2019-09-25": "data/scaling_factors/v1/zhangye-c6c86510ae/surface/20190924_20190924/LANDSAT_SCALING_FACTORS_100M.tif"
       }
     }
   },
-  "updated_at": "2026-09-27T08:23:08.738609Z"
+  "updated_at": "2026-09-27T08:38:06.615828Z"
 }
