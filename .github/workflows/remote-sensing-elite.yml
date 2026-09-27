@@ -1,5 +1,5 @@
 name: Remote Sensing ELITE Worker
-run-name: "ELITE ${{ inputs.job_key }}"
+run-name: "ELITE ${{ inputs.job_key || format('china-cache-test-{0}', github.run_id) }}"
 
 on:
   workflow_dispatch:
@@ -21,7 +21,7 @@ on:
         required: true
         type: string
       region_name:
-        description: Stable human-readable ROI name, e.g. zhangye or beijing
+        description: Stable ROI name, e.g. zhangye or beijing
         required: false
         default: ""
         type: string
@@ -33,21 +33,36 @@ on:
         options:
           - celsius
           - kelvin
+  push:
+    branches:
+      - main
+    paths:
+      - "worker.py"
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: elite-china-cache
+  cancel-in-progress: false
 
 jobs:
   elite:
     runs-on: ubuntu-latest
     timeout-minutes: 330
     env:
-      REMOTE_DATA_BUCKET: "${{ secrets.REMOTE_DATA_BUCKET }}"
-      GEE_GCS_BUCKET: "${{ secrets.GEE_GCS_BUCKET }}"
-      GCP_SERVICE_ACCOUNT_JSON_BASE64: "${{ secrets.GCP_SERVICE_ACCOUNT_JSON_BASE64 }}"
+      JOB_KEY: "${{ inputs.job_key || format('china-cache-test-{0}', github.run_id) }}"
+      START_DATE: "${{ inputs.start_date || '2019-09-24T00:00:00' }}"
+      END_DATE: "${{ inputs.end_date || '2019-09-24T01:00:00' }}"
+      BBOX: "${{ inputs.bbox || '100.1,38.7667,100.6,39.0667' }}"
+      REGION_NAME: "${{ inputs.region_name || 'zhangye' }}"
+      OUTPUT_UNIT: "${{ inputs.output_unit || 'celsius' }}"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -55,35 +70,39 @@ jobs:
           python-version: "3.12"
 
       - name: Install ELITE worker dependencies
-        run: >-
-          pip install
-          requests
-          numpy
-          h5py
-          pyhdf
-          rasterio
-          affine
-          google-cloud-storage
-          google-auth
+        run: pip install requests numpy h5py pyhdf rasterio affine
 
-      - name: Process ELITE FY-4A LST
+      - name: Build/reuse China cache and crop ROI
         run: >-
           python worker.py
-          --start-date '${{ inputs.start_date }}'
-          --end-date '${{ inputs.end_date }}'
-          --bbox '${{ inputs.bbox }}'
-          --region-name '${{ inputs.region_name }}'
-          --output-unit '${{ inputs.output_unit }}'
+          --start-date "$START_DATE"
+          --end-date "$END_DATE"
+          --bbox "$BBOX"
+          --region-name "$REGION_NAME"
+          --output-unit "$OUTPUT_UNIT"
 
-      - name: Remove ephemeral work files
+      - name: Commit new China cache
+        run: |
+          if [ -n "$(git status --porcelain -- data/elite/china data/metadata/elite-index.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/elite/china data/metadata/elite-index.json
+            git commit -m "data: cache ELITE China $START_DATE [skip vercel]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          else
+            echo "China cache already present; nothing to commit."
+          fi
+
+      - name: Remove temporary downloads
         if: always()
         run: rm -rf output/work
 
-      - name: Upload derived ROI GeoTIFFs
+      - name: Upload requested ROI result
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: "${{ inputs.job_key }}"
+          name: "${{ env.JOB_KEY }}"
           path: |
             output/derived/**/*.tif
             output/result.json
