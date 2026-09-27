@@ -20,7 +20,7 @@ from google.oauth2 import service_account
 DATASET = "ECMWF/ERA5_LAND/HOURLY"
 CACHE_VERSION = "v1"
 NODATA = -9999.0
-DEFAULT_PROJECT = "ee-yangxian"
+DEFAULT_PROJECT = "ee-ygangxian"
 
 BANDS = [
     ("T2_C", "temperature_2m", "degC"),
@@ -90,30 +90,14 @@ def cache_path(rid: str, ts: datetime) -> Path:
 
 
 def init_ee() -> str:
-    """Initialize Earth Engine from user OAuth credentials or a service account."""
+    """Initialize Earth Engine from the saved user OAuth credentials or a service account."""
+    project = os.getenv("EE_PROJECT", "").strip() or DEFAULT_PROJECT
     user_credentials_file = Path.home() / ".config" / "earthengine" / "credentials"
 
-    # Personal OAuth mode: mirror the user's working local Earth Engine setup.
-    # Do NOT force EE_PROJECT here. The user's saved credentials/default quota
-    # project may differ from a Cloud project that is visible in the console.
     if user_credentials_file.exists():
-        saved_project = ""
-        try:
-            saved = json.loads(user_credentials_file.read_text(encoding="utf-8"))
-            saved_project = str(
-                saved.get("project")
-                or saved.get("project_id")
-                or saved.get("quota_project_id")
-                or ""
-            ).strip()
-        except (OSError, json.JSONDecodeError):
-            saved_project = ""
-
-        project = saved_project or "earthengine-legacy"
         ee.Initialize(project=project)
         return project
 
-    # Optional future fallback: service-account JSON.
     raw = os.getenv("EE_SERVICE_ACCOUNT_JSON", "").strip()
     raw_b64 = os.getenv("EE_SERVICE_ACCOUNT_JSON_BASE64", "").strip()
     if not raw and raw_b64:
@@ -136,7 +120,6 @@ def init_ee() -> str:
         "Earth Engine credentials are missing. Configure EE_USER_CREDENTIALS_JSON_BASE64 "
         "or EE_SERVICE_ACCOUNT_JSON_BASE64 in GitHub Actions."
     )
-
 
 def prepared_image(ts: datetime):
     start = ts.strftime("%Y-%m-%dT%H:%M:%S")
