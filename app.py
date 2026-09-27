@@ -744,8 +744,15 @@ def scaling_factors_schema() -> dict[str, Any]:
             "note": "quasi-static factor; reference year differs from the 2019 experiment",
         },
         "surface": {
-            "dataset": "COPERNICUS/S2_SR_HARMONIZED",
+            "datasets": [
+                "LANDSAT/LC08/C02/T1_L2",
+                "LANDSAT/LC09/C02/T1_L2",
+            ],
+            "native_scale_m": 30,
             "target_scale_m": 100,
+            "resampling": "bilinear",
+            "surface_reflectance_conversion": "SR_Bx*0.0000275-0.2",
+            "qa_mask": "QA_PIXEL bits 0,1,2,3,4,5 == 0; QA_RADSAT == 0; water retained",
             "composite": "median over requested period",
             "bands": [
                 "BLUE",
@@ -1013,7 +1020,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Remote Sensing MCP",
     description="ELITE FY-4A + ERA5-Land + MODIS + Landsat + scaling factors MCP gateway",
-    version="0.8.0",
+    version="0.8.1",
     lifespan=lifespan,
 )
 
