@@ -27,6 +27,8 @@ CFAC = LFAC = 10233137.0
 SAT_HEIGHT = 35785863.0
 OUT_RES = 0.035932611365
 
+JULIAN_PATTERN = re.compile(r"(?<!\\d)(20\\d{2})(\\d{3})(\\d{2})(\\d{2})(?!\\d)")
+
 PATTERNS = [
     # YYYYMMDDHHMMSS — common FY-4A product timestamp form
     re.compile(r"(?<!\d)(20\d{2})(\d{2})(\d{2})[_-]?(\d{2})(\d{2})(\d{2})(?!\d)"),
@@ -41,6 +43,20 @@ PATTERNS = [
 
 def parse_ts(name: str):
     base = Path(name).name
+
+    # ELITE filenames use YYYYDDDHHMM, where DDD is day-of-year.
+    # Example: 20192440000 -> 2019, DOY 244, 00:00.
+    m = JULIAN_PATTERN.search(base)
+    if m:
+        year, doy, hour, minute = m.groups()
+        try:
+            return datetime.strptime(
+                f"{year}{doy}{hour}{minute}",
+                "%Y%j%H%M",
+            )
+        except ValueError:
+            pass
+
     for pattern in PATTERNS:
         m = pattern.search(base)
         if not m:
