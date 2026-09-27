@@ -204,6 +204,26 @@ def _github_era5_config() -> tuple[str, str, str, str]:
     return repo, workflow, ref, token
 
 
+def _github_modis_config() -> tuple[str, str, str, str]:
+    repo = os.getenv("GITHUB_WORKFLOW_REPOSITORY", "ygangxian-cpu/remote-sensing-mcp")
+    workflow = os.getenv("GITHUB_MODIS_WORKFLOW_ID", "remote-sensing-modis.yml")
+    ref = os.getenv("GITHUB_WORKFLOW_REF", "main")
+    token = os.getenv("GITHUB_WORKFLOW_TOKEN", "")
+    if not token:
+        raise RuntimeError("GitHub Actions remote dispatch is not configured.")
+    return repo, workflow, ref, token
+
+
+def _github_landsat_config() -> tuple[str, str, str, str]:
+    repo = os.getenv("GITHUB_WORKFLOW_REPOSITORY", "ygangxian-cpu/remote-sensing-mcp")
+    workflow = os.getenv("GITHUB_LANDSAT_WORKFLOW_ID", "remote-sensing-landsat.yml")
+    ref = os.getenv("GITHUB_WORKFLOW_REF", "main")
+    token = os.getenv("GITHUB_WORKFLOW_TOKEN", "")
+    if not token:
+        raise RuntimeError("GitHub Actions remote dispatch is not configured.")
+    return repo, workflow, ref, token
+
+
 @mcp.tool()
 def service_status() -> dict[str, Any]:
     """Show which online capabilities are configured."""
@@ -216,7 +236,11 @@ def service_status() -> dict[str, Any]:
         ),
         "elite_worker_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
         "era5_land_worker_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
+        "modis_lst_worker_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
+        "landsat_worker_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
         "era5_land_cache_backend": "github_repository_roi",
+        "modis_lst_cache_backend": "github_repository_roi",
+        "landsat_cache_backend": "github_repository_roi",
         "elite_persistent_storage_configured": True,
         "elite_cache_backend": "github_repository",
         "gcs_bucket_configured": bool(os.getenv("GEE_GCS_BUCKET")),
@@ -492,6 +516,205 @@ def era5_job_status(job_key: str) -> dict[str, Any]:
 
 
 @mcp.tool()
+def modis_lst_schema() -> dict[str, Any]:
+    """Describe MODIS Terra/Aqua daily LST processing and QC."""
+    return {
+        "datasets": {
+            "terra": DATASETS["modis_terra_lst"],
+            "aqua": DATASETS["modis_aqua_lst"],
+        },
+        "spatial_resolution": "1 km",
+        "temporal_resolution": "daily product with day/night observations",
+        "bands": ["LST_DAY_C", "LST_NIGHT_C", "DAY_VIEW_TIME_LOCAL_H", "NIGHT_VIEW_TIME_LOCAL_H"],
+        "qc_rule": "bits 0-1 <= 1; bits 2-3 == 0; bits 6-7 <= 2",
+        "lst_conversion": "DN * 0.02 - 273.15",
+        "view_time_conversion": "DN * 0.1 hours local solar time",
+        "cache": "data/modis_lst/v1/<region>-<bbox_hash>/YYYY/MM/DD/{MOD11A1|MYD11A1}_YYYYMMDD_QC.tif",
+    }
+
+
+@mcp.tool()
+def submit_modis_lst_job(
+    start_date: str,
+    end_date: str,
+    bbox: list[float],
+    region_name: str = "",
+    platforms: str = "terra,aqua",
+) -> dict[str, Any]:
+    """Submit Terra/Aqua MODIS daily LST acquisition and QC processing."""
+    if len(bbox) != 4:
+        raise ValueError("bbox must be [xmin,ymin,xmax,ymax]")
+    requested = [x.strip().lower() for x in platforms.split(",") if x.strip()]
+    if not requested or any(x not in {"terra", "aqua"} for x in requested):
+        raise ValueError("platforms must contain terra and/or aqua")
+
+    repo, workflow, ref, token = _github_modis_config()
+    job_key = f"modis-{int(time.time())}-{uuid.uuid4().hex[:8]}"
+    response = requests.post(
+        f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}/dispatches",
+        timeout=30,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+        json={
+            "ref": ref,
+            "inputs": {
+                "job_key": job_key,
+                "start_date": start_date,
+                "end_date": end_date,
+                "bbox": ",".join(str(float(x)) for x in bbox),
+                "region_name": region_name,
+                "platforms": ",".join(requested),
+            },
+        },
+    )
+    if response.status_code != 204:
+        raise RuntimeError(f"GitHub MODIS dispatch failed: {response.status_code} {response.text[:300]}")
+    return {
+        "submitted": True,
+        "job_key": job_key,
+        "workflow": workflow,
+        "platforms": requested,
+        "status_tool": "modis_job_status",
+    }
+
+
+@mcp.tool()
+def modis_job_status(job_key: str) -> dict[str, Any]:
+    """Look up a submitted MODIS GitHub Actions job."""
+    repo, workflow, _, token = _github_modis_config()
+    response = requests.get(
+        f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}/runs",
+        params={"event": "workflow_dispatch", "per_page": 50},
+        timeout=30,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    response.raise_for_status()
+    for run in response.json().get("workflow_runs", []):
+        title = str(run.get("display_title") or run.get("name") or "")
+        if job_key in title:
+            return {
+                "found": True,
+                "job_key": job_key,
+                "run_id": run.get("id"),
+                "status": run.get("status"),
+                "conclusion": run.get("conclusion"),
+                "html_url": run.get("html_url"),
+                "created_at": run.get("created_at"),
+                "updated_at": run.get("updated_at"),
+            }
+    return {"found": False, "job_key": job_key}
+
+
+@mcp.tool()
+def landsat_schema() -> dict[str, Any]:
+    """Describe Landsat 8/9 Collection 2 Level 2 preprocessing."""
+    return {
+        "datasets": {
+            "L8": DATASETS["landsat8_c2_l2"],
+            "L9": DATASETS["landsat9_c2_l2"],
+        },
+        "spatial_resolution": "30 m",
+        "bands": ["LST_C", "ST_QA_K", "SR_B2", "SR_B3", "SR_B4", "SR_B5", "SR_B6", "SR_B7"],
+        "lst_conversion": "ST_B10 * 0.00341802 + 149.0 - 273.15",
+        "surface_reflectance_conversion": "SR_Bx * 0.0000275 - 0.2",
+        "qa_mask": "QA_PIXEL bits 0,1,2,3,4,5,7 == 0 and QA_RADSAT == 0",
+        "processing_level": "L2SP",
+        "cache": "data/landsat_c2_l2/v1/<region>-<bbox_hash>/YYYY/MM/DD/<LANDSAT_PRODUCT_ID>_L2_QC.tif",
+    }
+
+
+@mcp.tool()
+def submit_landsat_job(
+    start_date: str,
+    end_date: str,
+    bbox: list[float],
+    region_name: str = "",
+    satellites: str = "L8,L9",
+    cloud_cover_max: float = 80.0,
+) -> dict[str, Any]:
+    """Submit Landsat 8/9 C2 L2 LST + surface-reflectance acquisition."""
+    if len(bbox) != 4:
+        raise ValueError("bbox must be [xmin,ymin,xmax,ymax]")
+    requested = [x.strip().upper() for x in satellites.split(",") if x.strip()]
+    if not requested or any(x not in {"L8", "L9"} for x in requested):
+        raise ValueError("satellites must contain L8 and/or L9")
+    if not 0 <= cloud_cover_max <= 100:
+        raise ValueError("cloud_cover_max must be between 0 and 100")
+
+    repo, workflow, ref, token = _github_landsat_config()
+    job_key = f"landsat-{int(time.time())}-{uuid.uuid4().hex[:8]}"
+    response = requests.post(
+        f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}/dispatches",
+        timeout=30,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+        json={
+            "ref": ref,
+            "inputs": {
+                "job_key": job_key,
+                "start_date": start_date,
+                "end_date": end_date,
+                "bbox": ",".join(str(float(x)) for x in bbox),
+                "region_name": region_name,
+                "satellites": ",".join(requested),
+                "cloud_cover_max": str(float(cloud_cover_max)),
+            },
+        },
+    )
+    if response.status_code != 204:
+        raise RuntimeError(f"GitHub Landsat dispatch failed: {response.status_code} {response.text[:300]}")
+    return {
+        "submitted": True,
+        "job_key": job_key,
+        "workflow": workflow,
+        "satellites": requested,
+        "cloud_cover_max": cloud_cover_max,
+        "status_tool": "landsat_job_status",
+    }
+
+
+@mcp.tool()
+def landsat_job_status(job_key: str) -> dict[str, Any]:
+    """Look up a submitted Landsat GitHub Actions job."""
+    repo, workflow, _, token = _github_landsat_config()
+    response = requests.get(
+        f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}/runs",
+        params={"event": "workflow_dispatch", "per_page": 50},
+        timeout=30,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    response.raise_for_status()
+    for run in response.json().get("workflow_runs", []):
+        title = str(run.get("display_title") or run.get("name") or "")
+        if job_key in title:
+            return {
+                "found": True,
+                "job_key": job_key,
+                "run_id": run.get("id"),
+                "status": run.get("status"),
+                "conclusion": run.get("conclusion"),
+                "html_url": run.get("html_url"),
+                "created_at": run.get("created_at"),
+                "updated_at": run.get("updated_at"),
+            }
+    return {"found": False, "job_key": job_key}
+
+
+@mcp.tool()
 def gee_auth_status(project: str | None = None) -> dict[str, Any]:
     """Validate the Vercel Earth Engine service-account configuration."""
     try:
@@ -645,8 +868,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Remote Sensing MCP",
-    description="GEE + ELITE FY-4A + ERA5-Land remote-sensing MCP gateway",
-    version="0.6.0",
+    description="ELITE FY-4A + ERA5-Land + MODIS + Landsat remote-sensing MCP gateway",
+    version="0.7.0",
     lifespan=lifespan,
 )
 
@@ -683,6 +906,8 @@ def health():
         "gcs_bucket_configured": bool(os.getenv("GEE_GCS_BUCKET")),
         "elite_repo_cache_enabled": True,
         "era5_land_repo_cache_enabled": True,
+        "modis_lst_repo_cache_enabled": True,
+        "landsat_repo_cache_enabled": True,
         "auth_enabled": bool(REMOTE_TOKEN),
     }
 
