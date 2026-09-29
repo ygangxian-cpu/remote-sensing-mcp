@@ -248,3 +248,38 @@ Authorization: Bearer <REMOTE_MCP_TOKEN>
 ## Notes on GitHub storage
 
 The cache intentionally stores only China-area hourly GeoTIFFs, not monthly ZIP files or full FY-4A disk products. Each file should remain well below GitHub's normal per-file limit, but a long multi-year archive can still make Git history large. If the cache grows substantially, move old years to an external archive while keeping the same index/layout.
+
+
+## Time provenance contract for LST harmonization
+
+For formal ELITE–MODIS sensor harmonization, the data layer must preserve observation-time semantics rather than collapsing products to a fixed nominal hour.
+
+### MODIS
+
+The MODIS v2 products preserve:
+
+- `DAY_VIEW_TIME_LOCAL_H`
+- `NIGHT_VIEW_TIME_LOCAL_H`
+- `QC_DAY`
+- `QC_NIGHT`
+
+Downstream matching converts local solar time to UTC per pixel using longitude and interpolates the hourly ELITE stack to the actual MODIS observation time.
+
+The acquisition layer must not replace View Time with fixed platform assumptions such as Terra Day=04 UTC or Aqua Day=07 UTC.
+
+### ELITE
+
+The current worker parses the hour encoded in the ELITE source filename for hourly storage and downstream access.
+
+For the formal paper, the exact time standard represented by the source filename/HDF time field (UTC, Beijing Time, or another convention) is a required provenance check and is **not considered proven solely from the public Zenodo landing page**.
+
+Until confirmed from original product metadata/README/author documentation:
+
+- preserve the source filename unchanged;
+- preserve any HDF time attributes when exporting derived files;
+- record the parsed hour separately from the asserted time standard;
+- do not silently label the parsed HHMM as verified UTC in new provenance metadata.
+
+Formal calibration design is maintained in the research repository:
+
+`yuyan3616/jiangchidu4kmto100m/docs/sensor_harmonization_ablation_20190924.md`.
