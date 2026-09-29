@@ -1,11 +1,6 @@
 name: Export Formal ROI ERA5 24h Snapshot
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/export-era5-formal-roi-24h.yml"
-      - "experiments/export_era5_formal_roi_24h.py"
   workflow_dispatch:
 
 permissions:
