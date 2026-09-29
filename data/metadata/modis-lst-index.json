@@ -56,7 +56,20 @@
         "2019-09-30:terra": "data/modis_lst/v1/zhangye-c6c86510ae/2019/09/30/MOD11A1_20190930_QC.tif"
       },
       "region_name": "zhangye"
+    },
+    "zhangye-experiment-2e599e4070": {
+      "bbox": [
+        99.86,
+        38.67,
+        100.5,
+        39.43
+      ],
+      "files": {
+        "2019-09-24:aqua": "data/modis_lst/v2/zhangye-experiment-2e599e4070/2019/09/24/MYD11A1_20190924_LST_QA.tif",
+        "2019-09-24:terra": "data/modis_lst/v2/zhangye-experiment-2e599e4070/2019/09/24/MOD11A1_20190924_LST_QA.tif"
+      },
+      "region_name": "zhangye-experiment"
     }
   },
-  "updated_at": "2026-09-27T09:59:17.254889Z"
+  "updated_at": "2026-09-29T17:08:42.935089Z"
 }
