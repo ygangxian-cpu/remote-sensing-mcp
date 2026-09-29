@@ -201,11 +201,17 @@ def coordinates_utm(profile100: dict) -> tuple[np.ndarray, np.ndarray, np.ndarra
     xs, ys = rasterio.transform.xy(
         profile100["transform"], rows, cols, offset="center"
     )
-    lon = np.asarray(xs, dtype="float64")
-    lat = np.asarray(ys, dtype="float64")
+    shape = rows.shape
+    lon = np.asarray(xs, dtype="float64").reshape(shape)
+    lat = np.asarray(ys, dtype="float64").reshape(shape)
     transformer = Transformer.from_crs(profile100["crs"], "EPSG:32647", always_xy=True)
     xm, ym = transformer.transform(lon, lat)
-    return lon, lat, np.asarray(xm, dtype="float32"), np.asarray(ym, dtype="float32")
+    return (
+        lon,
+        lat,
+        np.asarray(xm, dtype="float32").reshape(shape),
+        np.asarray(ym, dtype="float32").reshape(shape),
+    )
 
 
 def build_features_100m() -> tuple[dict[str, np.ndarray], dict]:
