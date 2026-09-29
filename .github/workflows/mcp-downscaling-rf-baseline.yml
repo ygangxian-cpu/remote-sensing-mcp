@@ -51,10 +51,7 @@ jobs:
         run: python experiments/mcp_rf_baseline.py
 
       - name: Run root-cause diagnostics
-        run: |
-          cd experiments
-          python diagnose_mcp_downscaling.py
-          cd ..
+        run: python experiments/diagnose_mcp_downscaling.py
 
       - name: Print metrics
         if: always()
