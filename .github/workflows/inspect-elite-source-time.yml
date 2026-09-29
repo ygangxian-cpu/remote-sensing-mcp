@@ -1,0 +1,48 @@
+name: Inspect ELITE Source Time Metadata
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/inspect-elite-source-time.yml"
+      - "experiments/inspect_elite_source_time.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests remotezip h5py pyhdf
+
+      - name: Syntax check
+        run: python -m py_compile experiments/inspect_elite_source_time.py
+
+      - name: Inspect original HDF metadata
+        run: python experiments/inspect_elite_source_time.py
+
+      - name: Print report
+        if: always()
+        run: cat elite_source_time_metadata.json || true
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: elite-source-time-metadata-20190924-0400
+          path: elite_source_time_metadata.json
+          if-no-files-found: warn
+          retention-days: 14
