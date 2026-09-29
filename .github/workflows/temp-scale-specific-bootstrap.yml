@@ -1,20 +1,19 @@
-name: TEMP Scale Specific Bootstrap
+name: TEMP Export Landsat v2 Validation
 
 on:
   push:
     branches: [main]
     paths:
       - ".github/workflows/temp-scale-specific-bootstrap.yml"
-      - "experiments/export_scale_specific_snapshot.py"
-      - "experiments/diagnose_mcp_downscaling.py"
+      - "experiments/export_landsat_v2_validation_snapshot.py"
 
 permissions:
   contents: read
 
 jobs:
-  bootstrap:
+  export:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 90
     env:
       EE_PROJECT: "${{ vars.EE_PROJECT || 'ee-ygangxian' }}"
       EE_USER_CREDENTIALS_JSON_BASE64: "${{ secrets.EE_USER_CREDENTIALS_JSON_BASE64 }}"
@@ -42,9 +41,9 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install earthengine-api google-auth requests numpy pandas scipy rasterio pyproj scikit-learn
+          pip install earthengine-api google-auth requests numpy scipy rasterio pyproj scikit-learn pandas
 
-      - name: Prepare original ROI scaling factors
+      - name: Prepare original ROI scaling grid
         run: |
           python scaling_factors_worker.py \
             --start-date 2019-09-24 \
@@ -52,15 +51,7 @@ jobs:
             --bbox '99.86,38.67,100.5,39.43' \
             --region-name zhangye-experiment
 
-      - name: Prepare original ROI ERA5-Land
-        run: |
-          python era5_worker.py \
-            --start-date 2019-09-24T04:00:00 \
-            --end-date 2019-09-24T05:00:00 \
-            --bbox '99.86,38.67,100.5,39.43' \
-            --region-name zhangye-experiment
-
-      - name: Fetch Landsat v2 reference
+      - name: Fetch Landsat v2 QA-preserving scene
         run: |
           python landsat_worker.py \
             --start-date 2019-09-24 \
@@ -70,27 +61,7 @@ jobs:
             --satellites L8 \
             --cloud-cover-max 20
 
-      - name: Syntax check
+      - name: Export clear-pixel validation snapshot
         run: |
-          python -m py_compile experiments/mcp_rf_baseline.py
-          python -m py_compile experiments/diagnose_mcp_downscaling.py
-          python -m py_compile experiments/export_scale_specific_snapshot.py
-
-      - name: Re-run baseline and diagnostics
-        run: |
-          python experiments/mcp_rf_baseline.py
-          python experiments/diagnose_mcp_downscaling.py
-
-      - name: Export compact MCP snapshot
-        run: python experiments/export_scale_specific_snapshot.py
-
-      - name: Upload diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: temp-scale-specific-bootstrap
-          path: |
-            output/mcp_downscaling_baseline/**
-            output/mcp_downscaling_diagnostics/**
-          if-no-files-found: warn
-          retention-days: 7
+          python -m py_compile experiments/export_landsat_v2_validation_snapshot.py
+          python experiments/export_landsat_v2_validation_snapshot.py
