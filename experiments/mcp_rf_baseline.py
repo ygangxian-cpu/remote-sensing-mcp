@@ -236,8 +236,14 @@ def build_features_100m() -> tuple[dict[str, np.ndarray], dict]:
     lc = reproject_band(LANDCOVER, "LANDCOVER", p100, Resampling.nearest)
     bsa = reproject_band(ALBEDO, "BSA_SHORTWAVE", p100)
 
+    t2 = reproject_band(ERA5, "T2_C", p100)
+    td2 = reproject_band(ERA5, "TD2_C", p100)
+    u10 = reproject_band(ERA5, "U10_MPS", p100)
+    v10 = reproject_band(ERA5, "V10_MPS", p100)
+    psfc = reproject_band(ERA5, "PSFC_PA", p100)
     swdown = reproject_band(ERA5, "SWDOWN_WM2", p100)
     glw = reproject_band(ERA5, "GLW_WM2", p100)
+    wind_speed = continuous_fill(np.sqrt(u10 ** 2 + v10 ** 2))
 
     lon, lat, lon_m, lat_m = coordinates_utm(p100)
 
@@ -286,6 +292,12 @@ def build_features_100m() -> tuple[dict[str, np.ndarray], dict]:
         "lat_m": lat_m,
         "lon_m": lon_m,
         "edrf": edrf,
+        "t2_c": t2,
+        "td2_c": td2,
+        "wind_speed": wind_speed,
+        "psfc_pa": psfc,
+        "swdown_wm2": swdown,
+        "glw_wm2": glw,
     }
     for name, arr in features.items():
         if not np.isfinite(arr).all():
@@ -353,22 +365,20 @@ def landsat_reference(p100: dict) -> tuple[np.ndarray, int]:
     return ref, int(np.isfinite(ref).sum())
 
 
-def run() -> None:
-    OUT.mkdir(parents=True, exist_ok=True)
-    y4, p4 = crop_elite()
-    features100, p100 = build_features_100m()
-    p1 = grid_1km(p100)
-
-    names = [
-        "dem", "slope", "aspect",
-        "ndvi", "ndbi", "mndwi", "savi", "bsi", "ui",
-        "albedo_bsa", "landcover", "lat_m", "lon_m", "edrf",
-    ]
-    f1 = aggregate_features(features100, p100, p1)
-    f4 = aggregate_features(features100, p100, p4)
-
-    X4 = matrix(f4, names)
-    X1 = matrix(f1, names)
+def run_feature_set(
+    label: str,
+    names: list[str],
+    features100: dict[str, np.ndarray],
+    p100: dict,
+    f1_all: dict[str, np.ndarray],
+    p1: dict,
+    f4_all: dict[str, np.ndarray],
+    p4: dict,
+    y4: np.ndarray,
+    ref100: np.ndarray,
+) -> tuple[list[dict], dict[str, np.ndarray], dict]:
+    X4 = matrix(f4_all, names)
+    X1 = matrix(f1_all, names)
     X100 = matrix(features100, names)
     y4f = y4.reshape(-1)
 
@@ -376,16 +386,13 @@ def run() -> None:
     if valid4.sum() < 30:
         raise RuntimeError(f"Too few 4km training pixels: {valid4.sum()}")
 
-    # Direct 4km -> 100m
     rf_direct = RandomForestRegressor(**RF_PARAMS)
     rf_direct.fit(X4[valid4], y4f[valid4])
     pred4 = rf_direct.predict(X4)
     res4 = (y4f - pred4).reshape(y4.shape)
-    pred100_direct = rf_direct.predict(X100).reshape((p100["height"], p100["width"]))
-    res100_direct = reproject_array(res4, p4, p100, Resampling.bilinear)
-    pred100_direct = pred100_direct + np.nan_to_num(res100_direct, nan=0.0)
+    direct = rf_direct.predict(X100).reshape((p100["height"], p100["width"]))
+    direct += np.nan_to_num(reproject_array(res4, p4, p100, Resampling.bilinear), nan=0.0)
 
-    # Cascaded 4km -> 1km -> 100m
     rf1 = RandomForestRegressor(**RF_PARAMS)
     rf1.fit(X4[valid4], y4f[valid4])
     pred4_l1 = rf1.predict(X4)
@@ -397,26 +404,57 @@ def run() -> None:
     valid1 = np.isfinite(y1f) & np.isfinite(X1).all(axis=1)
     rf2 = RandomForestRegressor(**RF_PARAMS)
     rf2.fit(X1[valid1], y1f[valid1])
-    pred1_l2 = rf2.predict(X1)
-    res1_l2 = (y1f - pred1_l2).reshape(y1.shape)
-    pred100_cascade = rf2.predict(X100).reshape((p100["height"], p100["width"]))
-    pred100_cascade += np.nan_to_num(
-        reproject_array(res1_l2, p1, p100, Resampling.bilinear), nan=0.0
-    )
-
-    ref100, ref_valid = landsat_reference(p100)
-    m_direct = metrics(ref100, pred100_direct)
-    m_cascade = metrics(ref100, pred100_cascade)
-
-    # Training diagnostics
-    train4 = metrics(y4f[valid4], pred4[valid4])
-    train1 = metrics(y1f[valid1], pred1_l2[valid1])
+    pred1 = rf2.predict(X1)
+    res1 = (y1f - pred1).reshape(y1.shape)
+    cascade = rf2.predict(X100).reshape((p100["height"], p100["width"]))
+    cascade += np.nan_to_num(reproject_array(res1, p1, p100, Resampling.bilinear), nan=0.0)
 
     rows = [
-        {"method": "mcp_rf_direct_4km_to_100m", **m_direct},
-        {"method": "mcp_rf_cascaded_4km_to_1km_to_100m", **m_cascade},
+        {"feature_set": label, "method": "direct_4km_to_100m", **metrics(ref100, direct)},
+        {"feature_set": label, "method": "cascaded_4km_to_1km_to_100m", **metrics(ref100, cascade)},
     ]
-    pd.DataFrame(rows).to_csv(OUT / "metrics.csv", index=False)
+    diagnostics = {
+        "feature_names": names,
+        "n_features": len(names),
+        "training_pixels_4km": int(valid4.sum()),
+        "training_pixels_1km": int(valid1.sum()),
+        "train_metrics_4km": metrics(y4f[valid4], pred4[valid4]),
+        "train_metrics_1km": metrics(y1f[valid1], pred1[valid1]),
+    }
+    return rows, {"direct": direct, "cascade": cascade}, diagnostics
+
+
+def run() -> None:
+    OUT.mkdir(parents=True, exist_ok=True)
+    y4, p4 = crop_elite()
+    features100, p100 = build_features_100m()
+    p1 = grid_1km(p100)
+
+    f1_all = aggregate_features(features100, p100, p1)
+    f4_all = aggregate_features(features100, p100, p4)
+    ref100, ref_valid = landsat_reference(p100)
+
+    base14 = [
+        "dem", "slope", "aspect",
+        "ndvi", "ndbi", "mndwi", "savi", "bsi", "ui",
+        "albedo_bsa", "landcover", "lat_m", "lon_m", "edrf",
+    ]
+    mcp20 = base14 + [
+        "t2_c", "td2_c", "wind_speed", "psfc_pa", "swdown_wm2", "glw_wm2",
+    ]
+
+    all_rows = []
+    predictions = {}
+    diagnostics = {}
+    for label, names in [("base14", base14), ("mcp20", mcp20)]:
+        rows, preds, diag = run_feature_set(
+            label, names, features100, p100, f1_all, p1, f4_all, p4, y4, ref100
+        )
+        all_rows.extend(rows)
+        predictions[label] = preds
+        diagnostics[label] = diag
+
+    pd.DataFrame(all_rows).to_csv(OUT / "metrics.csv", index=False)
 
     meta = {
         "date": DATE,
@@ -430,23 +468,18 @@ def run() -> None:
             "albedo": str(ALBEDO),
             "era5": str(ERA5),
         },
-        "feature_names": names,
-        "n_features": len(names),
         "grid_shapes": {
             "4km": [p4["height"], p4["width"]],
             "1km": [p1["height"], p1["width"]],
             "100m": [p100["height"], p100["width"]],
         },
-        "training_pixels_4km": int(valid4.sum()),
-        "training_pixels_1km": int(valid1.sum()),
         "landsat_clear_100m_pixels": ref_valid,
-        "train_metrics_4km": train4,
-        "train_metrics_1km": train1,
-        "validation": rows,
+        "feature_sets": diagnostics,
+        "validation": all_rows,
         "comparison_note": (
-            "This MCP full-stack trial uses a different FY-4A source and ROI from the legacy "
-            "experiment. Its absolute metrics must not be interpreted as a controlled source "
-            "ablation against the legacy 0.405 baseline."
+            "base14 vs mcp20 is a controlled predictor ablation because target, ROI, "
+            "reference and model are identical. Absolute comparison to the legacy experiment "
+            "is not controlled because its FY-4A source and ROI differ."
         ),
     }
     (OUT / "run_summary.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
@@ -462,11 +495,11 @@ def run() -> None:
         "nodata": -9999.0,
         "compress": "deflate",
     }
-    for name, arr in [
-        ("mcp_rf_direct_100m.tif", pred100_direct),
-        ("mcp_rf_cascaded_100m.tif", pred100_cascade),
-        ("landsat_reference_100m.tif", ref100),
-    ]:
+    outputs = [("landsat_reference_100m.tif", ref100)]
+    for label, preds in predictions.items():
+        outputs.append((f"{label}_direct_100m.tif", preds["direct"]))
+        outputs.append((f"{label}_cascaded_100m.tif", preds["cascade"]))
+    for name, arr in outputs:
         with rasterio.open(OUT / name, "w", **profile) as dst:
             dst.write(np.where(np.isfinite(arr), arr, -9999.0).astype("float32"), 1)
 
