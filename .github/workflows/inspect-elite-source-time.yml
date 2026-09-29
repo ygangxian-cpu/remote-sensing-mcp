@@ -1,11 +1,6 @@
 name: Inspect ELITE Source Time Metadata
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/inspect-elite-source-time.yml"
-      - "experiments/inspect_elite_source_time.py"
   workflow_dispatch:
 
 permissions:
