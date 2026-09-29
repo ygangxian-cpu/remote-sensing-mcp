@@ -2,6 +2,9 @@ name: MCP Downscaling RF Baseline
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/mcp-downscaling-rf-baseline.yml"
 
 permissions:
   contents: read
@@ -9,7 +12,7 @@ permissions:
 jobs:
   benchmark:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     env:
       EE_PROJECT: "${{ vars.EE_PROJECT || 'ee-ygangxian' }}"
       EE_USER_CREDENTIALS_JSON_BASE64: "${{ secrets.EE_USER_CREDENTIALS_JSON_BASE64 }}"
@@ -39,9 +42,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install earthengine-api google-auth requests numpy pandas scipy rasterio pyproj scikit-learn
 
-      - name: Fetch Landsat v2 reference
+      - name: Prepare original Zhangye ROI scaling factors
         run: |
-          python landsat_worker.py             --start-date 2019-09-24             --end-date 2019-09-25             --bbox '100.1,38.7667,100.6,39.0667'             --region-name zhangye             --satellites L8             --cloud-cover-max 20
+          python scaling_factors_worker.py             --start-date 2019-09-24             --end-date 2019-09-25             --bbox '99.86,38.67,100.5,39.43'             --region-name zhangye-experiment
+
+      - name: Prepare original Zhangye ROI ERA5-Land
+        run: |
+          python era5_worker.py             --start-date 2019-09-24T04:00:00             --end-date 2019-09-24T05:00:00             --bbox '99.86,38.67,100.5,39.43'             --region-name zhangye-experiment
+
+      - name: Fetch Landsat v2 reference for original Zhangye ROI
+        run: |
+          python landsat_worker.py             --start-date 2019-09-24             --end-date 2019-09-25             --bbox '99.86,38.67,100.5,39.43'             --region-name zhangye-experiment             --satellites L8             --cloud-cover-max 20
 
       - name: Run MCP RF benchmark
         run: python experiments/mcp_rf_baseline.py
@@ -64,7 +75,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mcp-rf-baseline-20190924-utc0400
+          name: mcp-rf-original-roi-20190924-utc0400
           path: |
             output/mcp_downscaling_baseline/**
             output/mcp_downscaling_diagnostics/**
