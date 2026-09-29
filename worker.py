@@ -252,7 +252,17 @@ def lst_kelvin(path: Path):
     values = raw * 0.01
     invalid |= (values < 150) | (values > 400)
     values = np.where(invalid, np.nan, values).astype("float32")
-    return values, ds_name
+    return values, ds_name, attrs
+
+
+def time_relevant_source_attrs(attrs: dict[str, Any]) -> dict[str, str]:
+    keywords = ("time", "date", "utc", "zone", "hour", "minute", "start", "end", "acquisition", "observation", "scan", "nominal")
+    out: dict[str, str] = {}
+    for key, value in attrs.items():
+        text = f"{key} {value}".lower()
+        if any(token in text for token in keywords):
+            out[str(key)] = str(value)[:1000]
+    return out
 
 
 def china_cache_path(ts: datetime) -> Path:
@@ -268,7 +278,8 @@ def china_cache_path(ts: datetime) -> Path:
 
 
 def write_china_cache(hdf_path: Path, out: Path, ts: datetime) -> dict[str, Any]:
-    values, ds_name = lst_kelvin(hdf_path)
+    values, ds_name, source_attrs = lst_kelvin(hdf_path)
+    source_time_attrs = time_relevant_source_attrs(source_attrs)
     xmin, ymin, xmax, ymax = CHINA_BBOX
     width = max(1, math.ceil((xmax - xmin) / OUT_RES))
     height = max(1, math.ceil((ymax - ymin) / OUT_RES))
@@ -318,7 +329,10 @@ def write_china_cache(hdf_path: Path, out: Path, ts: datetime) -> dict[str, Any]
         dst.set_band_description(1, "ELITE_FY4A_AGRI_LST")
         dst.update_tags(
             source_dataset=ds_name,
-            timestamp=ts.isoformat(),
+            source_time_label=ts.isoformat(),
+            source_time_standard="unverified",
+            source_time_standard_verified="false",
+            source_time_attrs=json.dumps(source_time_attrs, ensure_ascii=False, sort_keys=True),
             scale_factor=str(CACHE_SCALE),
             unit="kelvin",
             cache_extent="china",
@@ -346,6 +360,9 @@ def write_china_cache(hdf_path: Path, out: Path, ts: datetime) -> dict[str, Any]
         "height": height,
         "valid_pixels": int(valid.sum()),
         "source_dataset": ds_name,
+        "source_time_label": ts.isoformat(),
+        "source_time_standard": "unverified",
+        "source_time_attrs": source_time_attrs,
     }
 
 
