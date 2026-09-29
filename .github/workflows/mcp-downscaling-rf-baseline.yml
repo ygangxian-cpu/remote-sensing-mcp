@@ -1,0 +1,73 @@
+name: MCP Downscaling RF Baseline
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/mcp-downscaling-rf-baseline.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      EE_PROJECT: "${{ vars.EE_PROJECT || 'ee-ygangxian' }}"
+      EE_USER_CREDENTIALS_JSON_BASE64: "${{ secrets.EE_USER_CREDENTIALS_JSON_BASE64 }}"
+      EE_SERVICE_ACCOUNT_JSON_BASE64: "${{ secrets.EE_SERVICE_ACCOUNT_JSON_BASE64 }}"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore Earth Engine credentials
+        shell: bash
+        run: |
+          if [ -n "$EE_USER_CREDENTIALS_JSON_BASE64" ]; then
+            mkdir -p "$HOME/.config/earthengine"
+            printf '%s' "$EE_USER_CREDENTIALS_JSON_BASE64" | base64 --decode > "$HOME/.config/earthengine/credentials"
+            chmod 600 "$HOME/.config/earthengine/credentials"
+          elif [ -z "$EE_SERVICE_ACCOUNT_JSON_BASE64" ]; then
+            echo "::error::Missing Earth Engine credentials"
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install earthengine-api google-auth requests numpy pandas scipy rasterio pyproj scikit-learn
+
+      - name: Fetch Landsat v2 reference
+        run: |
+          python landsat_worker.py             --start-date 2019-09-24             --end-date 2019-09-25             --bbox '100.1,38.7667,100.6,39.0667'             --region-name zhangye             --satellites L8             --cloud-cover-max 20
+
+      - name: Run MCP RF benchmark
+        run: python experiments/mcp_rf_baseline.py
+
+      - name: Print metrics
+        if: always()
+        run: |
+          echo "=== MCP RF BASELINE METRICS ==="
+          cat output/mcp_downscaling_baseline/metrics.csv || true
+          echo
+          cat output/mcp_downscaling_baseline/run_summary.json || true
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcp-rf-baseline-20190924-utc0400
+          path: |
+            output/mcp_downscaling_baseline/**
+            output/result.json
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf output/work
