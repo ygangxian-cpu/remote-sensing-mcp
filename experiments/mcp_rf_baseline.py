@@ -16,8 +16,8 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 DATE = "2019-09-24"
 HOUR = 4
-ROI = [100.1, 38.7667, 100.6, 39.0667]
-RID = "zhangye-c6c86510ae"
+ROI = [99.86, 38.67, 100.5, 39.43]
+RID = "zhangye-experiment-2e599e4070"
 OUT = Path("output/mcp_downscaling_baseline")
 
 ELITE = Path("data/elite/china/2019/09/24/ELITE_FY4A_LST_20190924_0400_CHINA_K.tif")
