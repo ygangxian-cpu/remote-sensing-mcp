@@ -36,7 +36,12 @@ def pearson(a: np.ndarray, c: np.ndarray) -> float:
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
 
-    y4, p4 = b.crop_elite()
+    elite_native, elite_profile = b.crop_elite()
+    _, p4 = b.old_target_4km()
+    # Use the same 21 x 18 analysis grid as mcp_rf_baseline.py so diagnostics
+    # and benchmark metrics describe exactly the same ELITE target field.
+    y4 = b.reproject_array(elite_native, elite_profile, p4, Resampling.bilinear)
+    y4 = b.continuous_fill(y4)
     features100, p100 = b.build_features_100m()
     p1 = b.grid_1km(p100)
     f4 = b.aggregate_features(features100, p100, p4)
