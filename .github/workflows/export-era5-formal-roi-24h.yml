@@ -1,0 +1,56 @@
+name: Export Formal ROI ERA5 24h Snapshot
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/export-era5-formal-roi-24h.yml"
+      - "experiments/export_era5_formal_roi_24h.py"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install numpy rasterio
+
+      - name: Syntax check
+        run: |
+          python -m py_compile experiments/export_era5_formal_roi_24h.py
+          python -m py_compile worker.py
+
+      - name: Export snapshot
+        run: python experiments/export_era5_formal_roi_24h.py
+
+      - name: Commit snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/metadata/era5-formal-roi-20190924-24h.json.gz.b64
+          if git diff --cached --quiet; then
+            echo "Snapshot unchanged"
+          else
+            git commit -m "Add formal ROI ERA5-Land 24h snapshot"
+            git push origin HEAD:main
+          fi
+
+      - name: Upload snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: era5-formal-roi-20190924-24h
+          path: data/metadata/era5-formal-roi-20190924-24h.json.gz.b64
+          retention-days: 14
