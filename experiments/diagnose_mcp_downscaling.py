@@ -65,7 +65,7 @@ def main() -> None:
 
     for label, names in [("base14", base14), ("mcp20", mcp20)]:
         result_rows, preds, diag = b.run_feature_set(
-            label, names, features100, p100, f1, p1, f4, p4, y4, landsat100
+            "elite", label, names, features100, p100, f1, p1, f4, p4, y4, landsat100
         )
         rows.extend(result_rows)
         prediction_stats[label] = {}
