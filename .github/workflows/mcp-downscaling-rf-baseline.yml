@@ -2,6 +2,10 @@ name: MCP Downscaling RF Baseline
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/mcp-downscaling-rf-baseline.yml"
+      - "experiments/diagnose_mcp_downscaling.py"
 
 permissions:
   contents: read
@@ -46,6 +50,12 @@ jobs:
       - name: Run MCP RF benchmark
         run: python experiments/mcp_rf_baseline.py
 
+      - name: Run root-cause diagnostics
+        run: |
+          cd experiments
+          python diagnose_mcp_downscaling.py
+          cd ..
+
       - name: Print metrics
         if: always()
         run: |
@@ -53,6 +63,9 @@ jobs:
           cat output/mcp_downscaling_baseline/metrics.csv || true
           echo
           cat output/mcp_downscaling_baseline/run_summary.json || true
+          echo
+          echo "=== ROOT CAUSE DIAGNOSTICS ==="
+          cat output/mcp_downscaling_diagnostics/diagnostics.json || true
 
       - name: Upload benchmark results
         if: always()
@@ -61,6 +74,7 @@ jobs:
           name: mcp-rf-baseline-20190924-utc0400
           path: |
             output/mcp_downscaling_baseline/**
+            output/mcp_downscaling_diagnostics/**
             output/result.json
           if-no-files-found: warn
           retention-days: 7
