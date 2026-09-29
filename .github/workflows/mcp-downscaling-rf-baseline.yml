@@ -2,10 +2,6 @@ name: MCP Downscaling RF Baseline
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - ".github/workflows/mcp-downscaling-rf-baseline.yml"
-      - "experiments/mcp_rf_baseline.py"
 
 permissions:
   contents: read
