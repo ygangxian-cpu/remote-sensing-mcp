@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - ".github/workflows/mcp-downscaling-rf-baseline.yml"
+      - "experiments/mcp_rf_baseline.py"
 
 permissions:
   contents: read
