@@ -85,6 +85,37 @@ Avoid the reverse dependency. The data platform must not depend on a paper metho
 
 When the scientific repository needs a new input, prefer adding a reusable data capability here, then consume its standardized output from the scientific repository.
 
+## Result Ownership and Compute Boundary
+
+This repository is the **Data Plane**, not the long-term result archive and not the compute scheduler.
+
+For downstream experiments:
+
+- standardized sensor inputs, QA/QC outputs and provenance may be published as GitHub Actions artifacts or external/Kaggle Datasets;
+- large rasters, matchup tables, feature matrices and model checkpoints should not be committed to this repository;
+- formal paper metrics, ablation summaries and scientific conclusions must be migrated to `yuyan3616/jiangchidu4kmto100m`;
+- Kaggle execution, staged checkpoints and parallel notebook scheduling belong to `yuyan3616/kaggle-mcp`.
+
+The intended three-plane collaboration is:
+
+```text
+remote-sensing-mcp
+  Data Plane
+  acquisition / QC / timing / alignment / provenance
+                    |
+                    v
+jiangchidu4kmto100m
+  Science Plane
+  methods / configs / experiment definitions / paper results
+                    |
+                    v
+kaggle-mcp + Kaggle
+  Compute Plane
+  staged execution / parallel runs / checkpoint datasets
+```
+
+A temporary pilot executed here may leave its large artifacts in Actions, but once the result affects method selection, the small paper-facing outputs and the scientific interpretation must be copied into the scientific repository.
+
 ## Current Data Conventions
 
 - Formal coarse source: ELITE FY-4A/AGRI hourly 4 km LST.
