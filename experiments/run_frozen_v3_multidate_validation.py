@@ -685,6 +685,29 @@ def fit_stage1(features, y4, names):
     return y1.astype("float32")
 
 
+def parent_only_from_stage1(stage1_y1):
+    """Compose the Stage-1 1 km parent field onto 100 m without Stage-2 surface anomaly."""
+    shape1 = (PROFILES["1km"]["height"], PROFILES["1km"]["width"])
+    shape100 = (PROFILES["100m"]["height"], PROFILES["100m"]["width"])
+    smooth = reproject_array(
+        stage1_y1, PROFILES["1km"], PROFILES["100m"], Resampling.bilinear
+    )
+    smooth_parent = parent_mean_10x(smooth, shape1)
+    smooth_anomaly = smooth - expand_parent_10x(smooth_parent, shape100)
+    pred100 = expand_parent_10x(stage1_y1, shape100) + smooth_anomaly
+    final_parent = parent_mean_10x(pred100, shape1)
+    pred100 += expand_parent_10x(stage1_y1 - final_parent, shape100)
+    return pred100.astype("float32")
+
+
+def diagnostic_pair(label: str, ref, pred):
+    return {
+        "label": label,
+        **basic_metrics(ref, pred),
+        **distribution_metrics(ref, pred),
+    }
+
+
 def fit_stage2_v2(features, y4, stage1_y1):
     X4 = matrix(features["4km"], STATIC_FEATURES)
     X100 = matrix(features["100m"], STATIC_FEATURES)
@@ -752,7 +775,79 @@ def process_date(date: str, work: Path):
     v2_pred = fit_stage2_v2(features, y4, v2_stage1)
 
     v3_stage1 = fit_stage1(features, y4, STAGE1_V3)
+    v3_parent_only = parent_only_from_stage1(v3_stage1)
     v3_pred = fit_stage2_v2(features, y4, v3_stage1)
+
+    # Diagnostic decomposition only. Landsat is never used to fit the formal
+    # method; the oracle parent below is an evaluation upper bound that asks
+    # whether the learned within-parent structure is useful once the parent
+    # thermal mean is assumed correct.
+    shape1 = (PROFILES["1km"]["height"], PROFILES["1km"]["width"])
+    shape100 = (PROFILES["100m"]["height"], PROFILES["100m"]["width"])
+    ref1_nested = parent_mean_10x(ref100, shape1)
+    ref4 = reproject_array(ref100, PROFILES["100m"], PROFILES["4km"], Resampling.average)
+
+    v3_total_anomaly = v3_pred - expand_parent_10x(
+        parent_mean_10x(v3_pred, shape1), shape100
+    )
+    v3_surface_anomaly = v3_pred - v3_parent_only
+
+    oracle_parent_flat = expand_parent_10x(ref1_nested, shape100)
+    oracle_plus_total_anomaly = oracle_parent_flat + v3_total_anomaly
+    oracle_plus_surface_anomaly = oracle_parent_flat + v3_surface_anomaly
+
+    elite4_diag = diagnostic_pair("elite4_vs_landsat_agg4", ref4, y4)
+    v3_parent1_diag = diagnostic_pair("v3_stage1_vs_landsat_parent1", ref1_nested, v3_stage1)
+    v3_parent_only_diag = {
+        **diagnostic_pair("v3_parent_only_100m", ref100, v3_parent_only),
+        **subpixel_metrics(ref100, v3_parent_only),
+    }
+    v3_final_diag = {
+        **diagnostic_pair("v3_final_100m", ref100, v3_pred),
+        **subpixel_metrics(ref100, v3_pred),
+    }
+    oracle_flat_diag = {
+        **diagnostic_pair("oracle_landsat_parent_flat", ref100, oracle_parent_flat),
+        **subpixel_metrics(ref100, oracle_parent_flat),
+    }
+    oracle_total_diag = {
+        **diagnostic_pair("oracle_parent_plus_v3_total_anomaly", ref100, oracle_plus_total_anomaly),
+        **subpixel_metrics(ref100, oracle_plus_total_anomaly),
+    }
+    oracle_surface_diag = {
+        **diagnostic_pair("oracle_parent_plus_v3_surface_anomaly", ref100, oracle_plus_surface_anomaly),
+        **subpixel_metrics(ref100, oracle_plus_surface_anomaly),
+    }
+
+    stage2_increment = {
+        "date": date,
+        "delta_r2_final_minus_parent_only": float(v3_final_diag["r2"] - v3_parent_only_diag["r2"]),
+        "delta_rmse_final_minus_parent_only": float(v3_final_diag["rmse"] - v3_parent_only_diag["rmse"]),
+        "delta_ubrmse_final_minus_parent_only": float(v3_final_diag["ubrmse"] - v3_parent_only_diag["ubrmse"]),
+        "delta_pearson_final_minus_parent_only": float(v3_final_diag["pearson"] - v3_parent_only_diag["pearson"]),
+        "delta_anomaly_std_ratio": float(
+            v3_final_diag["subpixel_anomaly_std_ratio"]
+            - v3_parent_only_diag["subpixel_anomaly_std_ratio"]
+        ),
+        "delta_anomaly_pearson": float(
+            v3_final_diag["subpixel_anomaly_pearson"]
+            - v3_parent_only_diag["subpixel_anomaly_pearson"]
+        ),
+        "v3_bias_fraction_of_mse": float(
+            (v3_final_diag["bias"] ** 2) / (v3_final_diag["rmse"] ** 2)
+        ) if v3_final_diag["rmse"] else float("nan"),
+    }
+    decomposition = {
+        "date": date,
+        "elite4": elite4_diag,
+        "stage1_v3": v3_parent1_diag,
+        "parent_only_100m": v3_parent_only_diag,
+        "final_v3_100m": v3_final_diag,
+        "oracle_parent_flat": oracle_flat_diag,
+        "oracle_parent_plus_total_v3_anomaly": oracle_total_diag,
+        "oracle_parent_plus_surface_v3_anomaly": oracle_surface_diag,
+        "stage2_increment": stage2_increment,
+    }
 
     # Pre-existing v3 upper-bound ablation: use the unrestricted MCP20 parent
     # model, but keep exactly the same v2 thermal-potential Stage-2 anomaly.
@@ -790,7 +885,7 @@ def process_date(date: str, work: Path):
         "landsat_clear_pixels_100m": int(np.isfinite(ref100).sum()),
         "grid_shapes": {k: [v["height"], v["width"]] for k, v in PROFILES.items()},
     }
-    return rows, parent_metrics, provenance
+    return rows, parent_metrics, provenance, decomposition
 
 
 def main():
@@ -803,13 +898,27 @@ def main():
     all_rows = []
     parents = []
     provenance = []
+    decompositions = []
     dates = DATES + [CONTROL_DATE]
     for date in dates:
-        rows, parent, prov = process_date(date, work)
+        rows, parent, prov, decomp = process_date(date, work)
         all_rows.extend(rows)
         parents.append(parent)
         provenance.append(prov)
+        decompositions.append(decomp)
         print(pd.DataFrame(rows)[["date","method","r2","rmse","mae","bias","std_ratio","subpixel_anomaly_std_ratio","subpixel_anomaly_pearson"]].to_string(index=False), flush=True)
+        print(
+            "DECOMP "
+            f"{date} ELITE4(r2={decomp['elite4']['r2']:.4f},rmse={decomp['elite4']['rmse']:.3f},"
+            f"bias={decomp['elite4']['bias']:.3f}) "
+            f"STAGE1(r2={decomp['stage1_v3']['r2']:.4f},rmse={decomp['stage1_v3']['rmse']:.3f},"
+            f"bias={decomp['stage1_v3']['bias']:.3f}) "
+            f"STAGE2_delta_rmse={decomp['stage2_increment']['delta_rmse_final_minus_parent_only']:+.3f} "
+            f"ORACLE_total(r2={decomp['oracle_parent_plus_total_v3_anomaly']['r2']:.4f},"
+            f"rmse={decomp['oracle_parent_plus_total_v3_anomaly']['rmse']:.3f},"
+            f"anCorr={decomp['oracle_parent_plus_total_v3_anomaly']['subpixel_anomaly_pearson']:.3f})",
+            flush=True,
+        )
 
     df = pd.DataFrame(all_rows)
     df.to_csv(out / "per_date_metrics.csv", index=False)
@@ -864,6 +973,29 @@ def main():
         upper_paired.append(rec)
     pd.DataFrame(upper_paired).to_csv(out / "upper_bound_vs_direct_paired.csv", index=False)
 
+    decomposition_rows = []
+    stage2_rows = []
+    for d in decompositions:
+        for key in [
+            "elite4",
+            "stage1_v3",
+            "parent_only_100m",
+            "final_v3_100m",
+            "oracle_parent_flat",
+            "oracle_parent_plus_total_v3_anomaly",
+            "oracle_parent_plus_surface_v3_anomaly",
+        ]:
+            rec = {"date": d["date"], "component": key}
+            rec.update(d[key])
+            decomposition_rows.append(rec)
+        stage2_rows.append(d["stage2_increment"])
+    pd.DataFrame(decomposition_rows).to_csv(
+        out / "error_decomposition.csv", index=False
+    )
+    pd.DataFrame(stage2_rows).to_csv(
+        out / "stage2_increment.csv", index=False
+    )
+
     control = df[df["date"] == CONTROL_DATE].to_dict(orient="records")
     report = {
         "ee_project": project,
@@ -891,6 +1023,12 @@ def main():
         "control_20190924": control,
         "provenance": provenance,
         "stage1_parent_metrics": parents,
+        "error_decomposition": decompositions,
+        "diagnostic_oracle_guard": (
+            "The Landsat-derived 1 km oracle parent is evaluation-only. It is not a trainable "
+            "method, is excluded from formal performance claims, and is used only to identify "
+            "whether parent-field error or within-parent anomaly error is the dominant bottleneck."
+        ),
         "interpretation_guard": (
             "The five selected dates are method-selection holdout diagnostics. "
             "No feature set, RF hyperparameter or model structure is changed based on their results."
@@ -904,6 +1042,10 @@ def main():
     print(pd.DataFrame(paired).to_string(index=False), flush=True)
     print("=== UPPER BOUND VS DIRECT PAIRED ===", flush=True)
     print(pd.DataFrame(upper_paired).to_string(index=False), flush=True)
+    print("=== ERROR DECOMPOSITION ===", flush=True)
+    print(pd.DataFrame(decomposition_rows).to_string(index=False), flush=True)
+    print("=== STAGE2 INCREMENT ===", flush=True)
+    print(pd.DataFrame(stage2_rows).to_string(index=False), flush=True)
     print("=== CONTROL 2019-09-24 ===", flush=True)
     print(pd.DataFrame(control)[["date","method","r2","rmse","mae","bias","std_ratio","subpixel_anomaly_std_ratio","subpixel_anomaly_pearson"]].to_string(index=False), flush=True)
 
