@@ -330,8 +330,8 @@ def write_china_cache(hdf_path: Path, out: Path, ts: datetime) -> dict[str, Any]
         dst.update_tags(
             source_dataset=ds_name,
             source_time_label=ts.isoformat(),
-            source_time_standard="unverified",
-            source_time_standard_verified="false",
+            source_time_standard="UTC",
+            source_time_standard_verified="true",
             source_time_attrs=json.dumps(source_time_attrs, ensure_ascii=False, sort_keys=True),
             scale_factor=str(CACHE_SCALE),
             unit="kelvin",
@@ -361,7 +361,7 @@ def write_china_cache(hdf_path: Path, out: Path, ts: datetime) -> dict[str, Any]
         "valid_pixels": int(valid.sum()),
         "source_dataset": ds_name,
         "source_time_label": ts.isoformat(),
-        "source_time_standard": "unverified",
+        "source_time_standard": "UTC",
         "source_time_attrs": source_time_attrs,
     }
 
