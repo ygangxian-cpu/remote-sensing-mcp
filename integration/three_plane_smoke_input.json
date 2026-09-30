@@ -1,0 +1,36 @@
+{
+  "purpose": "three-plane infrastructure smoke test only; not scientific evidence",
+  "source_run_id": 36658505167,
+  "rows": [
+    {
+      "date": "2019-05-03",
+      "elite4_rmse": 2.841854,
+      "stage1_rmse": 3.472525
+    },
+    {
+      "date": "2019-05-19",
+      "elite4_rmse": 3.43667,
+      "stage1_rmse": 3.985122
+    },
+    {
+      "date": "2019-07-22",
+      "elite4_rmse": 4.904202,
+      "stage1_rmse": 5.669391
+    },
+    {
+      "date": "2019-09-15",
+      "elite4_rmse": 9.396846,
+      "stage1_rmse": 9.813984
+    },
+    {
+      "date": "2019-10-26",
+      "elite4_rmse": 3.869211,
+      "stage1_rmse": 4.27128
+    },
+    {
+      "date": "2019-09-24",
+      "elite4_rmse": 2.77348,
+      "stage1_rmse": 3.443628
+    }
+  ]
+}
