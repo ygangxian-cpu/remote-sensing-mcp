@@ -836,7 +836,7 @@ def main():
     summary_df.to_csv(out / "independent_date_summary.csv", index=False)
 
     paired = []
-    pivot = indep.pivot(index="date", columns="method", values=["r2","rmse","mae","subpixel_anomaly_std_ratio","subpixel_anomaly_pearson"])
+    pivot = indep.pivot(index="date", columns="method", values=["r2","rmse","ubrmse","pearson","mae","subpixel_anomaly_std_ratio","subpixel_anomaly_pearson"])
     for date in DATES:
         rec = {"date": date}
         if date in pivot.index:
