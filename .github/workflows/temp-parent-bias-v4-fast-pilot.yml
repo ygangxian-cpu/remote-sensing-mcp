@@ -1,0 +1,65 @@
+name: TEMP Parent Bias v4 Fast Pilot
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "experiments/run_parent_bias_correction_v4_fast_pilot.py"
+      - ".github/workflows/temp-parent-bias-v4-fast-pilot.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      EE_PROJECT: "${{ vars.EE_PROJECT || 'ee-ygangxian' }}"
+      EE_USER_CREDENTIALS_JSON_BASE64: "${{ secrets.EE_USER_CREDENTIALS_JSON_BASE64 }}"
+      EE_SERVICE_ACCOUNT_JSON_BASE64: "${{ secrets.EE_SERVICE_ACCOUNT_JSON_BASE64 }}"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore Earth Engine credentials
+        shell: bash
+        run: |
+          if [ -n "$EE_USER_CREDENTIALS_JSON_BASE64" ]; then
+            mkdir -p "$HOME/.config/earthengine"
+            printf '%s' "$EE_USER_CREDENTIALS_JSON_BASE64" | base64 --decode > "$HOME/.config/earthengine/credentials"
+            chmod 600 "$HOME/.config/earthengine/credentials"
+          elif [ -z "$EE_SERVICE_ACCOUNT_JSON_BASE64" ]; then
+            echo "::error::Missing Earth Engine credentials"
+            exit 1
+          fi
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: >-
+          pip install earthengine-api google-auth requests remotezip
+          numpy pandas scipy scikit-learn rasterio pyproj h5py pyhdf affine
+      - name: Syntax check
+        run: |
+          python -m py_compile experiments/run_parent_bias_correction_v4_pilot.py
+          python -m py_compile experiments/run_parent_bias_correction_v4_fast_pilot.py
+      - name: Run date-grouped fast pilot
+        run: python experiments/run_parent_bias_correction_v4_fast_pilot.py
+      - name: Print results
+        if: always()
+        run: |
+          cat output/parent_bias_v4_pilot/end_to_end_metrics.csv || true
+          echo
+          cat output/parent_bias_v4_pilot/paired_vs_p0.csv || true
+          echo
+          cat output/parent_bias_v4_pilot/date_blocked_cv_folds.csv || true
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parent-bias-v4-fast-pilot-201909
+          path: |
+            output/parent_bias_v4_pilot/*.csv
+            output/parent_bias_v4_pilot/*.json
+          if-no-files-found: warn
+          retention-days: 14
