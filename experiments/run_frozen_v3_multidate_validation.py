@@ -546,12 +546,17 @@ def basic_metrics(ref, pred):
     valid = np.isfinite(ref) & np.isfinite(pred)
     y = ref[valid].astype("float64")
     p = pred[valid].astype("float64")
+    bias = float(np.mean(p - y))
+    rmse = float(mean_squared_error(y, p) ** 0.5)
+    centered = (p - y) - bias
     return {
         "n_samples": int(valid.sum()),
         "r2": float(r2_score(y, p)),
-        "rmse": float(mean_squared_error(y, p) ** 0.5),
+        "pearson": float(np.corrcoef(y, p)[0, 1]) if y.size > 1 else float("nan"),
+        "rmse": rmse,
+        "ubrmse": float(np.sqrt(np.mean(centered ** 2))),
         "mae": float(mean_absolute_error(y, p)),
-        "bias": float(np.mean(p - y)),
+        "bias": bias,
     }
 
 
@@ -749,11 +754,19 @@ def process_date(date: str, work: Path):
     v3_stage1 = fit_stage1(features, y4, STAGE1_V3)
     v3_pred = fit_stage2_v2(features, y4, v3_stage1)
 
+    # Pre-existing v3 upper-bound ablation: use the unrestricted MCP20 parent
+    # model, but keep exactly the same v2 thermal-potential Stage-2 anomaly.
+    mcp20_stage1 = fit_stage1(features, y4, MCP20)
+    mcp20_parent_anomaly_pred = fit_stage2_v2(features, y4, mcp20_stage1)
+
     methods = {
         "direct_mcp20": (direct, None),
         "ordinary_cascade": (ordinary, ordinary_y1),
         "scale_specific_v2": (v2_pred, v2_stage1),
         "scale_specific_v3_frozen": (v3_pred, v3_stage1),
+        "mcp20_parent_v2_anomaly_upper_bound": (
+            mcp20_parent_anomaly_pred, mcp20_stage1
+        ),
     }
     rows = [
         evaluate(date, name, ref100, pred, y4, parent)
@@ -766,6 +779,7 @@ def process_date(date: str, work: Path):
         "v2_stage1": basic_metrics(parent_ref, v2_stage1),
         "v3_stage1": basic_metrics(parent_ref, v3_stage1),
         "ordinary_stage1": basic_metrics(parent_ref, ordinary_y1),
+        "mcp20_upper_bound_stage1": basic_metrics(parent_ref, mcp20_stage1),
     }
 
     provenance = {
@@ -810,6 +824,8 @@ def main():
             "median_r2": float(g["r2"].median()),
             "mean_rmse": float(g["rmse"].mean()),
             "median_rmse": float(g["rmse"].median()),
+            "mean_ubrmse": float(g["ubrmse"].mean()),
+            "mean_pearson": float(g["pearson"].mean()),
             "mean_mae": float(g["mae"].mean()),
             "mean_abs_bias": float(g["bias"].abs().mean()),
             "mean_std_ratio": float(g["std_ratio"].mean()),
@@ -834,6 +850,20 @@ def main():
         paired.append(rec)
     pd.DataFrame(paired).to_csv(out / "v3_vs_direct_paired.csv", index=False)
 
+    upper_paired = []
+    for date in DATES:
+        rec = {"date": date}
+        if date in pivot.index:
+            for metric in ["r2","rmse","mae","ubrmse","pearson","subpixel_anomaly_std_ratio","subpixel_anomaly_pearson"]:
+                rec[f"upper_minus_direct_{metric}"] = float(
+                    pivot.loc[date, (metric, "mcp20_parent_v2_anomaly_upper_bound")]
+                    - pivot.loc[date, (metric, "direct_mcp20")]
+                )
+            rec["upper_beats_direct_rmse"] = bool(rec["upper_minus_direct_rmse"] < 0)
+            rec["upper_beats_direct_r2"] = bool(rec["upper_minus_direct_r2"] > 0)
+        upper_paired.append(rec)
+    pd.DataFrame(upper_paired).to_csv(out / "upper_bound_vs_direct_paired.csv", index=False)
+
     control = df[df["date"] == CONTROL_DATE].to_dict(orient="records")
     report = {
         "ee_project": project,
@@ -857,6 +887,7 @@ def main():
         "selection_origin": "ROI clear-LST scouting run 36653792591; 2019-09-24 excluded from selection",
         "independent_summary": summary_rows,
         "paired_v3_vs_direct": paired,
+        "paired_upper_bound_vs_direct": upper_paired,
         "control_20190924": control,
         "provenance": provenance,
         "stage1_parent_metrics": parents,
@@ -871,6 +902,8 @@ def main():
     print(summary_df.to_string(index=False), flush=True)
     print("=== V3 VS DIRECT PAIRED ===", flush=True)
     print(pd.DataFrame(paired).to_string(index=False), flush=True)
+    print("=== UPPER BOUND VS DIRECT PAIRED ===", flush=True)
+    print(pd.DataFrame(upper_paired).to_string(index=False), flush=True)
     print("=== CONTROL 2019-09-24 ===", flush=True)
     print(pd.DataFrame(control)[["date","method","r2","rmse","mae","bias","std_ratio","subpixel_anomaly_std_ratio","subpixel_anomaly_pearson"]].to_string(index=False), flush=True)
 
