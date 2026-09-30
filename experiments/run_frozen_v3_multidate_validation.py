@@ -77,6 +77,9 @@ STAGE1_V2 = [
     "swdown_wm2", "glw_wm2", "edrf", "albedo_bsa",
 ]
 STAGE1_V3 = STAGE1_V2 + ["dem", "ndvi", "landcover"]
+NO_XY_STAGE2_FEATURES = [
+    name for name in STATIC_FEATURES if name not in {"lat_m", "lon_m"}
+]
 
 # Exact formal grid anchored to the existing Landsat-v2 validation snapshot.
 ORIGIN_X = 99.85942192857837
@@ -746,9 +749,10 @@ def diagnostic_pair(label: str, ref, pred):
     }
 
 
-def fit_stage2_v2(features, y4, stage1_y1):
-    X4 = matrix(features["4km"], STATIC_FEATURES)
-    X100 = matrix(features["100m"], STATIC_FEATURES)
+def fit_stage2_v2(features, y4, stage1_y1, stage2_features=None):
+    names = STATIC_FEATURES if stage2_features is None else stage2_features
+    X4 = matrix(features["4km"], names)
+    X100 = matrix(features["100m"], names)
     y = y4.reshape(-1)
     valid = np.isfinite(y) & np.isfinite(X4).all(axis=1)
     rf = RandomForestRegressor(**RF_PARAMS)
@@ -815,6 +819,9 @@ def process_date(date: str, work: Path):
     v3_stage1 = fit_stage1(features, y4, STAGE1_V3)
     v3_parent_only = parent_only_from_stage1(v3_stage1)
     v3_pred = fit_stage2_v2(features, y4, v3_stage1)
+    no_xy_stage2_pred = fit_stage2_v2(
+        features, y4, v3_stage1, NO_XY_STAGE2_FEATURES
+    )
 
     # Diagnostic decomposition only. Landsat is never used to fit the formal
     # method; the oracle parent below is an evaluation upper bound that asks
@@ -926,6 +933,7 @@ def process_date(date: str, work: Path):
         "ordinary_cascade": (ordinary, ordinary_y1),
         "scale_specific_v2": (v2_pred, v2_stage1),
         "scale_specific_v3_frozen": (v3_pred, v3_stage1),
+        "v3_stage1_no_xy_stage2_candidate": (no_xy_stage2_pred, v3_stage1),
         "mcp20_parent_v2_anomaly_upper_bound": (
             mcp20_parent_anomaly_pred, mcp20_stage1
         ),
@@ -1028,6 +1036,26 @@ def main():
         paired.append(rec)
     pd.DataFrame(paired).to_csv(out / "v3_vs_direct_paired.csv", index=False)
 
+    no_xy_paired = []
+    for date in DATES:
+        rec = {"date": date}
+        if date in pivot.index:
+            for metric in [
+                "r2", "rmse", "ubrmse", "pearson", "mae",
+                "subpixel_anomaly_std_ratio", "subpixel_anomaly_pearson"
+            ]:
+                rec[f"no_xy_minus_v3_{metric}"] = float(
+                    pivot.loc[date, (metric, "v3_stage1_no_xy_stage2_candidate")]
+                    - pivot.loc[date, (metric, "scale_specific_v3_frozen")]
+                )
+            rec["no_xy_beats_v3_rmse"] = bool(rec["no_xy_minus_v3_rmse"] < 0)
+            rec["no_xy_beats_v3_r2"] = bool(rec["no_xy_minus_v3_r2"] > 0)
+            rec["no_xy_beats_v3_anomaly_pearson"] = bool(
+                rec["no_xy_minus_v3_subpixel_anomaly_pearson"] > 0
+            )
+        no_xy_paired.append(rec)
+    pd.DataFrame(no_xy_paired).to_csv(out / "no_xy_stage2_vs_v3_paired.csv", index=False)
+
     upper_paired = []
     for date in DATES:
         rec = {"date": date}
@@ -1115,6 +1143,7 @@ def main():
         "selection_origin": "ROI clear-LST scouting run 36653792591; 2019-09-24 excluded from selection",
         "independent_summary": summary_rows,
         "paired_v3_vs_direct": paired,
+        "paired_no_xy_stage2_vs_v3": no_xy_paired,
         "paired_upper_bound_vs_direct": upper_paired,
         "control_20190924": control,
         "provenance": provenance,
@@ -1137,6 +1166,8 @@ def main():
     print(summary_df.to_string(index=False), flush=True)
     print("=== V3 VS DIRECT PAIRED ===", flush=True)
     print(pd.DataFrame(paired).to_string(index=False), flush=True)
+    print("=== NO-XY STAGE2 VS V3 PAIRED ===", flush=True)
+    print(pd.DataFrame(no_xy_paired).to_string(index=False), flush=True)
     print("=== UPPER BOUND VS DIRECT PAIRED ===", flush=True)
     print(pd.DataFrame(upper_paired).to_string(index=False), flush=True)
     print("=== ERROR DECOMPOSITION ===", flush=True)
