@@ -1,11 +1,6 @@
 name: TEMP ELITE-MODIS Multi-date Cross-check
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "experiments/diagnose_elite_modis_multidate.py"
-      - ".github/workflows/temp-elite-modis-multidate.yml"
   workflow_dispatch:
 
 permissions:
