@@ -1,11 +1,6 @@
 name: TEMP Frozen v3 Multi-date Validation
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "experiments/run_frozen_v3_multidate_validation.py"
-      - ".github/workflows/temp-frozen-v3-multidate-validation.yml"
   workflow_dispatch:
 
 permissions:
