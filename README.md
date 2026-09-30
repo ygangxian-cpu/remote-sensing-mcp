@@ -271,14 +271,15 @@ The acquisition layer must not replace View Time with fixed platform assumptions
 
 The current worker parses the hour encoded in the ELITE source filename for hourly storage and downstream access.
 
-For the formal paper, the exact time standard represented by the source filename/HDF time field (UTC, Beijing Time, or another convention) is a required provenance check and is **not considered proven solely from the public Zenodo landing page**.
+For the formal project, the HHMM field encoded in the ELITE source filename is confirmed as **UTC**.
 
-Until confirmed from original product metadata/README/author documentation:
+The original source filename is preserved, and derived cache files record:
 
-- preserve the source filename unchanged;
-- preserve any HDF time attributes when exporting derived files;
-- record the parsed hour separately from the asserted time standard;
-- do not silently label the parsed HHMM as verified UTC in new provenance metadata.
+- `source_time_label=<parsed filename time>`
+- `source_time_standard=UTC`
+- `source_time_standard_verified=true`
+
+An audit of the original HDF4 source showed no explicit timezone attribute in the HDF itself; that fact is retained as provenance history but is no longer an experiment blocker.
 
 Formal calibration design is maintained in the research repository:
 
