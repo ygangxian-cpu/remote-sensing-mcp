@@ -148,3 +148,11 @@ For data-platform changes, check the smallest relevant combination of:
 - MCP endpoint or worker behavior when affected.
 
 For temporary experiment harnesses, also record the run ID and artifact name so the formal scientific repository can cite or migrate the result.
+
+## Fast Handoff Contract
+
+For normal experiments, this Data Plane should not be modified unless the requested input data, QA/QC, exact-time matching, grid alignment, or provenance contract changes.
+
+Model parameters, feature selection, Notebook layout, ablations, metrics, and paper-facing evaluation belong to `yuyan3616/jiangchidu4kmto100m` and should not trigger changes here.
+
+Each formal experiment should reference the exact Data Plane source/provenance through the Science Plane experiment manifest. Kaggle execution should consume that standardized handoff without creating a reverse dependency on this repository.
