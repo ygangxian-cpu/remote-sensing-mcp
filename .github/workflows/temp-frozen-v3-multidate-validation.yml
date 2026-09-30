@@ -1,0 +1,66 @@
+name: TEMP Frozen v3 Multi-date Validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "experiments/run_frozen_v3_multidate_validation.py"
+      - ".github/workflows/temp-frozen-v3-multidate-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    env:
+      EE_PROJECT: "${{ vars.EE_PROJECT || 'ee-ygangxian' }}"
+      EE_USER_CREDENTIALS_JSON_BASE64: "${{ secrets.EE_USER_CREDENTIALS_JSON_BASE64 }}"
+      EE_SERVICE_ACCOUNT_JSON_BASE64: "${{ secrets.EE_SERVICE_ACCOUNT_JSON_BASE64 }}"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore Earth Engine credentials
+        shell: bash
+        run: |
+          if [ -n "$EE_USER_CREDENTIALS_JSON_BASE64" ]; then
+            mkdir -p "$HOME/.config/earthengine"
+            printf '%s' "$EE_USER_CREDENTIALS_JSON_BASE64" | base64 --decode > "$HOME/.config/earthengine/credentials"
+            chmod 600 "$HOME/.config/earthengine/credentials"
+          elif [ -z "$EE_SERVICE_ACCOUNT_JSON_BASE64" ]; then
+            echo "::error::Missing Earth Engine credentials"
+            exit 1
+          fi
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install experiment dependencies
+        run: >-
+          pip install earthengine-api google-auth requests remotezip
+          numpy pandas scipy scikit-learn rasterio pyproj h5py pyhdf affine
+      - name: Syntax check
+        run: python -m py_compile experiments/run_frozen_v3_multidate_validation.py
+      - name: Run frozen v3 multi-date validation
+        run: python experiments/run_frozen_v3_multidate_validation.py
+      - name: Print final metrics
+        if: always()
+        run: |
+          echo "=== PER DATE ==="
+          cat output/multidate_v3_validation/per_date_metrics.csv || true
+          echo
+          echo "=== INDEPENDENT SUMMARY ==="
+          cat output/multidate_v3_validation/independent_date_summary.csv || true
+          echo
+          echo "=== V3 VS DIRECT ==="
+          cat output/multidate_v3_validation/v3_vs_direct_paired.csv || true
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frozen-v3-multidate-validation-2019
+          path: |
+            output/multidate_v3_validation/*.csv
+            output/multidate_v3_validation/*.json
+          if-no-files-found: warn
+          retention-days: 14
