@@ -42,6 +42,13 @@ DATES = [
     "2019-09-15",
     "2019-10-26",
 ]
+SELECTED_PRODUCTS = {
+    "2019-05-03": "LC08_L2SP_133033_20190503_20200828_02_T1",
+    "2019-05-19": "LC08_L2SP_133033_20190519_20200828_02_T1",
+    "2019-07-22": "LC08_L2SP_133033_20190722_20200827_02_T1",
+    "2019-09-15": "LC08_L2SP_134033_20190915_20200826_02_T1",
+    "2019-10-26": "LC08_L2SP_133033_20191026_20200825_02_T1",
+}
 CONTROL_DATE = "2019-09-24"
 HOUR = 4
 ELITE_RECORD_ID = 10672052
@@ -194,9 +201,12 @@ def download_ee_image(image, path: Path, region, scale=30):
                     f.write(chunk)
 
 
-def download_exact_grid(image, path: Path, profile: dict):
+def download_exact_grid(image, path: Path, profile: dict, unmask_value=None):
     t = profile["transform"]
-    url = ee.Image(image).getDownloadURL({
+    prepared = ee.Image(image)
+    if unmask_value is not None:
+        prepared = prepared.unmask(float(unmask_value))
+    url = prepared.getDownloadURL({
         "name": path.stem,
         "crs": "EPSG:4326",
         "crs_transform": [t.a, t.b, t.c, t.d, t.e, t.f],
@@ -221,8 +231,11 @@ def landsat_scene(date: str):
         .filterDate(start, end)
         .filterBounds(geom)
         .filter(ee.Filter.eq("PROCESSING_LEVEL", "L2SP"))
-        .sort("CLOUD_COVER")
     )
+    if date in SELECTED_PRODUCTS:
+        col = col.filter(ee.Filter.eq("LANDSAT_PRODUCT_ID", SELECTED_PRODUCTS[date]))
+    else:
+        col = col.sort("CLOUD_COVER")
     if int(col.size().getInfo()) < 1:
         raise RuntimeError(f"No Landsat L2SP scene on {date}")
     image = ee.Image(col.first())
@@ -281,7 +294,12 @@ def read_multiband(path: Path, names: list[str]):
         p = profile_dict(src)
     if data.shape[0] != len(names):
         raise RuntimeError(f"{path}: expected {len(names)} bands, got {data.shape[0]}")
-    return {name: data[i].filled(np.nan) for i, name in enumerate(names)}, p
+    result = {}
+    for i, name in enumerate(names):
+        arr = data[i].filled(np.nan).astype("float32")
+        arr[np.isclose(arr, -9999.0, atol=1e-3)] = np.nan
+        result[name] = arr
+    return result, p
 
 
 def build_static_features(date: str, scene, work: Path):
@@ -292,7 +310,7 @@ def build_static_features(date: str, scene, work: Path):
     indices100 = spectral_indices(scene).reduceResolution(
         reducer=ee.Reducer.mean(), maxPixels=1024
     )
-    download_exact_grid(indices100, idx_path, PROFILES["100m"])
+    download_exact_grid(indices100, idx_path, PROFILES["100m"], unmask_value=-9999.0)
     idx_names = ["ndvi", "ndbi", "mndwi", "savi", "bsi", "ui"]
     idx_raw, idx_profile = read_multiband(idx_path, idx_names)
 
@@ -329,7 +347,7 @@ def build_static_features(date: str, scene, work: Path):
         .toFloat()
     )
     alb_path = work / f"albedo_{date}.tif"
-    download_exact_grid(alb.resample("bilinear"), alb_path, PROFILES["100m"])
+    download_exact_grid(alb.resample("bilinear"), alb_path, PROFILES["100m"], unmask_value=-9999.0)
     alb_raw, alb_profile = read_multiband(alb_path, ["albedo_bsa"])
 
     # 4) WorldCover categorical factor on the exact 100m grid.
@@ -508,7 +526,7 @@ def landsat_reference(date: str, scene, work: Path):
     )
     path = work / f"landsat_lst_{date}_100m.tif"
     lst100 = lst.reduceResolution(reducer=ee.Reducer.mean(), maxPixels=1024)
-    download_exact_grid(lst100, path, PROFILES["100m"])
+    download_exact_grid(lst100, path, PROFILES["100m"], unmask_value=-9999.0)
     raw, _ = read_multiband(path, ["lst_c"])
     return raw["lst_c"].astype("float32")
 
