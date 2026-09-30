@@ -1,11 +1,6 @@
 name: TEMP Scout Landsat Validation Dates
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "experiments/scout_landsat_validation_dates.py"
-      - ".github/workflows/temp-scout-landsat-validation-dates.yml"
   workflow_dispatch:
 
 permissions:
