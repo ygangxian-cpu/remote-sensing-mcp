@@ -27,6 +27,11 @@ from scipy import ndimage
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
+import sys
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 import worker as elite_worker
 
 ROI = [99.86, 38.67, 100.5, 39.43]
