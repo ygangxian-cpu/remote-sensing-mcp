@@ -595,6 +595,44 @@ def expand_parent_10x(arr1, shape100):
     return arr1[rows[:, None], cols[None, :]].astype("float32")
 
 
+def parent_mean_factor(arr, shape_parent, factor):
+    hp, wp = shape_parent
+    means = np.full((hp, wp), np.nan, dtype="float32")
+    for r in range(hp):
+        rs = slice(r * factor, min((r + 1) * factor, arr.shape[0]))
+        for col in range(wp):
+            cs = slice(col * factor, min((col + 1) * factor, arr.shape[1]))
+            block = arr[rs, cs]
+            if np.isfinite(block).any():
+                means[r, col] = float(np.nanmean(block))
+    return means
+
+
+def expand_parent_factor(arr_parent, shape_child, factor):
+    rows = np.minimum(np.arange(shape_child[0]) // factor, arr_parent.shape[0] - 1)
+    cols = np.minimum(np.arange(shape_child[1]) // factor, arr_parent.shape[1] - 1)
+    return arr_parent[rows[:, None], cols[None, :]].astype("float32")
+
+
+def anomaly_metrics_factor(ref, pred, shape_parent, factor):
+    ref_parent = parent_mean_factor(ref, shape_parent, factor)
+    pred_parent = parent_mean_factor(pred, shape_parent, factor)
+    ra = ref - expand_parent_factor(ref_parent, ref.shape, factor)
+    pa = pred - expand_parent_factor(pred_parent, pred.shape, factor)
+    valid = np.isfinite(ra) & np.isfinite(pa)
+    r = ra[valid].astype("float64")
+    p = pa[valid].astype("float64")
+    rs = float(np.std(r))
+    ps = float(np.std(p))
+    return {
+        "anomaly_std_prediction": ps,
+        "anomaly_std_reference": rs,
+        "anomaly_std_ratio": ps / rs if rs else float("nan"),
+        "anomaly_pearson": float(np.corrcoef(r, p)[0, 1]) if r.size > 1 else float("nan"),
+        "anomaly_rmse": float(np.sqrt(np.mean((p - r) ** 2))),
+    }
+
+
 def subpixel_metrics(ref, pred):
     shape1 = (PROFILES["1km"]["height"], PROFILES["1km"]["width"])
     ref_parent = parent_mean_10x(ref, shape1)
@@ -785,7 +823,18 @@ def process_date(date: str, work: Path):
     shape1 = (PROFILES["1km"]["height"], PROFILES["1km"]["width"])
     shape100 = (PROFILES["100m"]["height"], PROFILES["100m"]["width"])
     ref1_nested = parent_mean_10x(ref100, shape1)
+    shape4 = (PROFILES["4km"]["height"], PROFILES["4km"]["width"])
+    ref4_nested = parent_mean_factor(ref100, shape4, 40)
     ref4 = reproject_array(ref100, PROFILES["100m"], PROFILES["4km"], Resampling.average)
+
+    # Source-limited oracle: give the method the *perfect* Landsat within-4km
+    # anomaly while forcing every 4 km parent mean to remain the ELITE target.
+    # This is not a model and never enters training; it quantifies the absolute
+    # validation ceiling imposed by the coarse target under strict conservation.
+    ref_anomaly4 = ref100 - expand_parent_factor(ref4_nested, shape100, 40)
+    elite_parent100 = expand_parent_factor(y4, shape100, 40)
+    elite_parent_only = elite_parent100
+    elite4_perfect_spatial_oracle = elite_parent100 + ref_anomaly4
 
     v3_total_anomaly = v3_pred - expand_parent_10x(
         parent_mean_10x(v3_pred, shape1), shape100
@@ -797,6 +846,20 @@ def process_date(date: str, work: Path):
     oracle_plus_surface_anomaly = oracle_parent_flat + v3_surface_anomaly
 
     elite4_diag = diagnostic_pair("elite4_vs_landsat_agg4", ref4, y4)
+    elite_parent_only_diag = {
+        **diagnostic_pair("elite4_parent_only_100m", ref100, elite_parent_only),
+        **anomaly_metrics_factor(ref100, elite_parent_only, shape4, 40),
+    }
+    elite4_perfect_spatial_diag = {
+        **diagnostic_pair(
+            "elite4_parent_plus_perfect_landsat_within4km_anomaly",
+            ref100,
+            elite4_perfect_spatial_oracle,
+        ),
+        **anomaly_metrics_factor(ref100, elite4_perfect_spatial_oracle, shape4, 40),
+    }
+    direct_4km_anomaly_diag = anomaly_metrics_factor(ref100, direct, shape4, 40)
+    v3_4km_anomaly_diag = anomaly_metrics_factor(ref100, v3_pred, shape4, 40)
     v3_parent1_diag = diagnostic_pair("v3_stage1_vs_landsat_parent1", ref1_nested, v3_stage1)
     v3_parent_only_diag = {
         **diagnostic_pair("v3_parent_only_100m", ref100, v3_parent_only),
@@ -840,6 +903,10 @@ def process_date(date: str, work: Path):
     decomposition = {
         "date": date,
         "elite4": elite4_diag,
+        "elite4_parent_only_100m": elite_parent_only_diag,
+        "elite4_perfect_spatial_oracle": elite4_perfect_spatial_diag,
+        "direct_within4km_anomaly": direct_4km_anomaly_diag,
+        "v3_within4km_anomaly": v3_4km_anomaly_diag,
         "stage1_v3": v3_parent1_diag,
         "parent_only_100m": v3_parent_only_diag,
         "final_v3_100m": v3_final_diag,
@@ -913,6 +980,8 @@ def main():
             f"bias={decomp['elite4']['bias']:.3f}) "
             f"STAGE1(r2={decomp['stage1_v3']['r2']:.4f},rmse={decomp['stage1_v3']['rmse']:.3f},"
             f"bias={decomp['stage1_v3']['bias']:.3f}) "
+            f"SOURCE_FLOOR_RMSE={decomp['elite4_perfect_spatial_oracle']['rmse']:.3f} "
+            f"V3_4KM_AN_CORR={decomp['v3_within4km_anomaly']['anomaly_pearson']:.3f} "
             f"STAGE2_delta_rmse={decomp['stage2_increment']['delta_rmse_final_minus_parent_only']:+.3f} "
             f"ORACLE_total(r2={decomp['oracle_parent_plus_total_v3_anomaly']['r2']:.4f},"
             f"rmse={decomp['oracle_parent_plus_total_v3_anomaly']['rmse']:.3f},"
@@ -978,6 +1047,8 @@ def main():
     for d in decompositions:
         for key in [
             "elite4",
+            "elite4_parent_only_100m",
+            "elite4_perfect_spatial_oracle",
             "stage1_v3",
             "parent_only_100m",
             "final_v3_100m",
@@ -989,11 +1060,36 @@ def main():
             rec.update(d[key])
             decomposition_rows.append(rec)
         stage2_rows.append(d["stage2_increment"])
+    source_limit_rows = []
+    for d in decompositions:
+        raw = d["elite4"]
+        oracle = d["elite4_perfect_spatial_oracle"]
+        source_limit_rows.append({
+            "date": d["date"],
+            "elite4_r2": raw["r2"],
+            "elite4_rmse": raw["rmse"],
+            "elite4_ubrmse": raw["ubrmse"],
+            "elite4_bias": raw["bias"],
+            "perfect_spatial_oracle_r2": oracle["r2"],
+            "perfect_spatial_oracle_rmse": oracle["rmse"],
+            "perfect_spatial_oracle_ubrmse": oracle["ubrmse"],
+            "v3_rmse": d["final_v3_100m"]["rmse"],
+            "v3_excess_rmse_above_source_floor": float(
+                d["final_v3_100m"]["rmse"] - oracle["rmse"]
+            ),
+            "direct_within4km_anomaly_pearson": d["direct_within4km_anomaly"]["anomaly_pearson"],
+            "direct_within4km_anomaly_std_ratio": d["direct_within4km_anomaly"]["anomaly_std_ratio"],
+            "v3_within4km_anomaly_pearson": d["v3_within4km_anomaly"]["anomaly_pearson"],
+            "v3_within4km_anomaly_std_ratio": d["v3_within4km_anomaly"]["anomaly_std_ratio"],
+        })
     pd.DataFrame(decomposition_rows).to_csv(
         out / "error_decomposition.csv", index=False
     )
     pd.DataFrame(stage2_rows).to_csv(
         out / "stage2_increment.csv", index=False
+    )
+    pd.DataFrame(source_limit_rows).to_csv(
+        out / "source_limited_upper_bound.csv", index=False
     )
 
     control = df[df["date"] == CONTROL_DATE].to_dict(orient="records")
@@ -1024,6 +1120,7 @@ def main():
         "provenance": provenance,
         "stage1_parent_metrics": parents,
         "error_decomposition": decompositions,
+        "source_limited_upper_bound": source_limit_rows,
         "diagnostic_oracle_guard": (
             "The Landsat-derived 1 km oracle parent is evaluation-only. It is not a trainable "
             "method, is excluded from formal performance claims, and is used only to identify "
@@ -1046,6 +1143,8 @@ def main():
     print(pd.DataFrame(decomposition_rows).to_string(index=False), flush=True)
     print("=== STAGE2 INCREMENT ===", flush=True)
     print(pd.DataFrame(stage2_rows).to_string(index=False), flush=True)
+    print("=== SOURCE-LIMITED PERFECT-SPATIAL ORACLE ===", flush=True)
+    print(pd.DataFrame(source_limit_rows).to_string(index=False), flush=True)
     print("=== CONTROL 2019-09-24 ===", flush=True)
     print(pd.DataFrame(control)[["date","method","r2","rmse","mae","bias","std_ratio","subpixel_anomaly_std_ratio","subpixel_anomaly_pearson"]].to_string(index=False), flush=True)
 
