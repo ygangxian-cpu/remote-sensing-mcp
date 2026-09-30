@@ -289,7 +289,10 @@ def build_static_features(date: str, scene, work: Path):
 
     # 1) Date-specific Landsat spectral indices, same formulation as frozen 2019-09-24 pipeline.
     idx_path = work / f"indices_{date}.tif"
-    download_ee_image(spectral_indices(scene), idx_path, geom, scale=30)
+    indices100 = spectral_indices(scene).reduceResolution(
+        reducer=ee.Reducer.mean(), maxPixels=1024
+    )
+    download_exact_grid(indices100, idx_path, PROFILES["100m"])
     idx_names = ["ndvi", "ndbi", "mndwi", "savi", "bsi", "ui"]
     idx_raw, idx_profile = read_multiband(idx_path, idx_names)
 
@@ -302,7 +305,8 @@ def build_static_features(date: str, scene, work: Path):
         terrain.select("aspect").rename("aspect"),
     ]).toFloat()
     terr_path = work / f"terrain_{date}.tif"
-    download_ee_image(terr, terr_path, geom, scale=30)
+    terr100 = terr.reduceResolution(reducer=ee.Reducer.mean(), maxPixels=1024)
+    download_exact_grid(terr100, terr_path, PROFILES["100m"])
     terr_raw, terr_profile = read_multiband(terr_path, ["dem", "slope", "aspect"])
 
     # 3) Same-day MCD43A3 black-sky shortwave albedo, strict mandatory QA==0.
@@ -325,7 +329,7 @@ def build_static_features(date: str, scene, work: Path):
         .toFloat()
     )
     alb_path = work / f"albedo_{date}.tif"
-    download_ee_image(alb, alb_path, geom, scale=500)
+    download_exact_grid(alb.resample("bilinear"), alb_path, PROFILES["100m"])
     alb_raw, alb_profile = read_multiband(alb_path, ["albedo_bsa"])
 
     # 4) WorldCover categorical factor on the exact 100m grid.
@@ -336,16 +340,10 @@ def build_static_features(date: str, scene, work: Path):
 
     base100 = {}
     for name, arr in idx_raw.items():
-        base100[name] = fill_continuous(
-            reproject_array(arr, idx_profile, PROFILES["100m"], Resampling.average)
-        )
+        base100[name] = fill_continuous(arr)
     for name, arr in terr_raw.items():
-        base100[name] = fill_continuous(
-            reproject_array(arr, terr_profile, PROFILES["100m"], Resampling.average)
-        )
-    base100["albedo_bsa"] = fill_continuous(
-        reproject_array(alb_raw["albedo_bsa"], alb_profile, PROFILES["100m"], Resampling.bilinear)
-    )
+        base100[name] = fill_continuous(arr)
+    base100["albedo_bsa"] = fill_continuous(alb_raw["albedo_bsa"])
     base100["landcover"] = fill_nearest(
         reproject_array(lc_raw["landcover"], lc_profile, PROFILES["100m"], Resampling.nearest)
     )
@@ -508,12 +506,11 @@ def landsat_reference(date: str, scene, work: Path):
         .updateMask(clear_mask(scene))
         .toFloat()
     )
-    geom = ee.Geometry.Rectangle(ROI, proj="EPSG:4326", geodesic=False)
-    path = work / f"landsat_lst_{date}_30m.tif"
-    download_ee_image(lst, path, geom, scale=30)
-    raw, p = read_multiband(path, ["lst_c"])
-    ref100 = reproject_array(raw["lst_c"], p, PROFILES["100m"], Resampling.average)
-    return ref100
+    path = work / f"landsat_lst_{date}_100m.tif"
+    lst100 = lst.reduceResolution(reducer=ee.Reducer.mean(), maxPixels=1024)
+    download_exact_grid(lst100, path, PROFILES["100m"])
+    raw, _ = read_multiband(path, ["lst_c"])
+    return raw["lst_c"].astype("float32")
 
 
 def merge_features(static_all, dynamic_all):
