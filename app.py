@@ -347,13 +347,14 @@ def get_job_result(job_key: str) -> dict[str, Any]:
     if status != "completed":
         result["message"] = "The job is still running. Check again later."
         return result
-    if conclusion != "success":
-        result["message"] = "The job completed but did not succeed."
-        return result
-
     artifact = _artifact_for_run(repo, token, int(run["id"]), job_key)
     if artifact is None:
-        result["message"] = "The job succeeded but no matching result artifact was found."
+        if conclusion != "success":
+            result["message"] = (
+                "The workflow did not succeed and no matching result artifact was found."
+            )
+        else:
+            result["message"] = "The job succeeded but no matching result artifact was found."
         return result
     if artifact.get("expired"):
         result["message"] = "The result artifact has expired."
@@ -369,6 +370,7 @@ def get_job_result(job_key: str) -> dict[str, Any]:
     result.update(
         {
             "ready": True,
+            "workflow_succeeded": conclusion == "success",
             "artifact_id": artifact.get("id"),
             "artifact_name": artifact.get("name"),
             "artifact_size_bytes": artifact.get("size_in_bytes"),
@@ -385,6 +387,11 @@ def get_job_result(job_key: str) -> dict[str, Any]:
             ),
         }
     )
+    if conclusion != "success":
+        result["warning"] = (
+            "The workflow conclusion is not success, but a non-expired result artifact exists. "
+            "The artifact is still downloadable; inspect result.json for cache-persistence warnings."
+        )
     return result
 
 
@@ -395,8 +402,12 @@ def service_status() -> dict[str, Any]:
         "service": "remote-sensing-mcp",
         "elite_catalog": True,
         "elite_plan": True,
-        "earth_engine_configured": bool(
+        "vercel_direct_earth_engine_configured": bool(
             os.getenv("EE_SERVICE_ACCOUNT_JSON") or os.getenv("EE_SERVICE_ACCOUNT_JSON_BASE64")
+        ),
+        "vercel_direct_earth_engine_note": (
+            "This only describes direct Earth Engine access from Vercel. "
+            "GitHub Actions workers authenticate separately with repository secrets."
         ),
         "elite_worker_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
         "era5_land_worker_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
@@ -409,7 +420,8 @@ def service_status() -> dict[str, Any]:
         "modis_lst_cache_version": "v2",
         "modis_quality_reporting": True,
         "landsat_cache_backend": "github_repository_roi",
-        "landsat_cache_version": "v2",
+        "landsat_cache_version": "v3",
+        "landsat_cache_scope": "validation_lst_qa",
         "landsat_quality_reporting": True,
         "tpdc_ancfds_public_api": True,
         "tpdc_ancfds_cache_backend": "github_repository_roi",
@@ -817,29 +829,30 @@ def landsat_schema() -> dict[str, Any]:
         "bands": [
             "LST_C",
             "ST_QA_K",
-            "SR_B2",
-            "SR_B3",
-            "SR_B4",
-            "SR_B5",
-            "SR_B6",
-            "SR_B7",
             "QA_PIXEL",
             "QA_RADSAT",
         ],
         "lst_conversion": "ST_B10 * 0.00341802 + 149.0 - 273.15",
-        "surface_reflectance_conversion": "SR_Bx * 0.0000275 - 0.2",
-        "download_policy": "preserve native product availability; no additional QA mask",
+        "download_policy": (
+            "validation-oriented LST/QA cache; preserve native product availability "
+            "with no additional QA mask"
+        ),
+        "spectral_factors": (
+            "Reflective SR bands are intentionally excluded from the persistent Landsat cache. "
+            "Use scaling_factors_schema / submit_scaling_factors_job for SR-derived predictors."
+        ),
         "qa_preserved": True,
         "water_preserved": True,
         "recommended_clear_mask": "QA_PIXEL bits 0,1,2,3,4,5 == 0; water bit 7 is retained",
         "qa_radsat_policy": "preserved and reported separately; not used to erase LST",
         "quality_report": (
             "result.json reports native LST coverage, clear-LST coverage, individual QA bit counts, "
-            "water fraction, radiometric saturation and clear-unsaturated SR coverage"
+            "water fraction and radiometric saturation"
         ),
         "processing_level": "L2SP",
-        "cache_version": "v2",
-        "cache": "data/landsat_c2_l2/v2/<region>-<bbox_hash>/YYYY/MM/DD/<LANDSAT_PRODUCT_ID>_L2_RAW_QA.tif",
+        "cache_version": "v3",
+        "cache_scope": "validation_lst_qa",
+        "cache": "data/landsat_c2_l2/v3/<region>-<bbox_hash>/YYYY/MM/DD/<LANDSAT_PRODUCT_ID>_L2_LST_QA.tif",
     }
 
 
@@ -852,7 +865,7 @@ def submit_landsat_job(
     satellites: str = "L8,L9",
     cloud_cover_max: float = 80.0,
 ) -> dict[str, Any]:
-    """Submit Landsat 8/9 C2 L2 LST + surface-reflectance acquisition."""
+    """Submit Landsat 8/9 C2 L2 validation LST + QA acquisition."""
     if len(bbox) != 4:
         raise ValueError("bbox must be [xmin,ymin,xmax,ymax]")
     requested = [x.strip().upper() for x in satellites.split(",") if x.strip()]
@@ -1219,13 +1232,33 @@ def tpdc_ancfds_job_status(job_key: str) -> dict[str, Any]:
 
 @mcp.tool()
 def gee_auth_status(project: str | None = None) -> dict[str, Any]:
-    """Validate the Vercel Earth Engine service-account configuration."""
+    """Validate direct Earth Engine access from Vercel only.
+
+    This is not a readiness check for MODIS/Landsat/ERA5 GitHub Actions workers,
+    which authenticate independently with repository secrets.
+    """
+    note = (
+        "Scope is Vercel-direct Earth Engine only. A false result does not imply "
+        "that GitHub Actions MODIS/Landsat/ERA5 workers are unavailable."
+    )
     try:
         used_project = _initialize_ee(project)
         ee.Number(1).getInfo()
-        return {"ok": True, "project": used_project}
+        return {
+            "ok": True,
+            "scope": "vercel_direct_earth_engine",
+            "project": used_project,
+            "github_actions_workers_checked": False,
+            "note": note,
+        }
     except Exception as exc:
-        return {"ok": False, "error": str(exc)}
+        return {
+            "ok": False,
+            "scope": "vercel_direct_earth_engine",
+            "github_actions_workers_checked": False,
+            "error": str(exc),
+            "note": note,
+        }
 
 
 @mcp.tool()
@@ -1372,7 +1405,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Remote Sensing MCP",
     description="ELITE FY-4A + TPDC ANCFDS-LST + ERA5-Land + MODIS + Landsat + scaling factors MCP gateway",
-    version="0.11.0",
+    version="0.11.1",
     lifespan=lifespan,
 )
 
@@ -1401,10 +1434,14 @@ def health():
     return {
         "ok": True,
         "service": "remote-sensing-mcp",
-        "version": "0.11.0",
+        "version": "0.11.1",
         "vercel": bool(os.getenv("VERCEL")),
-        "ee_configured": bool(
+        "vercel_direct_ee_configured": bool(
             os.getenv("EE_SERVICE_ACCOUNT_JSON") or os.getenv("EE_SERVICE_ACCOUNT_JSON_BASE64")
+        ),
+        "vercel_direct_ee_scope_note": (
+            "GitHub Actions Earth Engine workers authenticate separately; "
+            "this field does not represent worker readiness."
         ),
         "github_actions_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
         "gcs_bucket_configured": bool(os.getenv("GEE_GCS_BUCKET")),
@@ -1412,6 +1449,8 @@ def health():
         "era5_land_repo_cache_enabled": True,
         "modis_lst_repo_cache_enabled": True,
         "landsat_repo_cache_enabled": True,
+        "landsat_cache_version": "v3",
+        "landsat_cache_scope": "validation_lst_qa",
         "tpdc_ancfds_repo_cache_enabled": True,
         "tpdc_ancfds_public_api_enabled": True,
         "scaling_factors_repo_cache_enabled": True,
