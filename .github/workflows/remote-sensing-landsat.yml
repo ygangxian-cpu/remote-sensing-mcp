@@ -84,6 +84,8 @@ jobs:
           --cloud-cover-max '${{ inputs.cloud_cover_max }}'
 
       - name: Commit new Landsat cache
+        id: cache_commit
+        continue-on-error: true
         run: |
           if [ -n "$(git status --porcelain -- data/landsat_c2_l2 data/metadata/landsat-index.json)" ]; then
             git config user.name "github-actions[bot]"
@@ -93,6 +95,36 @@ jobs:
             git pull --rebase origin main
             git push origin HEAD:main
           fi
+
+      - name: Record Landsat cache persistence
+        if: always()
+        env:
+          CACHE_COMMIT_OUTCOME: ${{ steps.cache_commit.outcome }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path("output/result.json")
+          if path.exists():
+              payload = json.loads(path.read_text(encoding="utf-8"))
+              outcome = os.environ.get("CACHE_COMMIT_OUTCOME", "unknown")
+              payload["repository_cache_commit"] = {
+                  "outcome": outcome,
+                  "persisted": outcome == "success",
+              }
+              if outcome != "success":
+                  payload["repository_cache_commit"]["warning"] = (
+                      "The requested Landsat data artifact was produced, but the persistent "
+                      "GitHub repository cache commit did not succeed."
+                  )
+                  print("::warning::Landsat data was produced but repository cache persistence failed.")
+              path.write_text(
+                  json.dumps(payload, indent=2, ensure_ascii=False),
+                  encoding="utf-8",
+              )
+          PY
 
       - name: Cleanup
         if: always()
