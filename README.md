@@ -198,45 +198,50 @@ Datasets:
 - `LANDSAT/LC08/C02/T1_L2`
 - `LANDSAT/LC09/C02/T1_L2`
 
+The Landsat worker uses GitHub Actions Earth Engine credentials (`EE_USER_CREDENTIALS_JSON_BASE64` first, service account fallback) and is independent of Vercel's direct `gee_auth_status` check.
+
 Repository cache:
 
 ```text
-data/landsat_c2_l2/v2/<region>-<bbox_hash>/YYYY/MM/DD/
-└── <LANDSAT_PRODUCT_ID>_L2_RAW_QA.tif
+data/landsat_c2_l2/v3/<region>-<bbox_hash>/YYYY/MM/DD/
+└── <LANDSAT_PRODUCT_ID>_L2_LST_QA.tif
 ```
 
-The v2 downloader preserves native product availability and QA instead of permanently masking research-quality pixels at download time.
+The v3 cache is deliberately **validation-oriented and lightweight** so each persistent Git object stays comfortably below GitHub's 100 MiB single-file limit.
 
-Each cached scene contains:
+Each cached scene contains only:
 
 - `LST_C`
 - `ST_QA_K`
-- `SR_B2` .. `SR_B7`
 - `QA_PIXEL`
 - `QA_RADSAT`
 
-Conversions:
+LST conversion:
 
 ```text
 LST_C = ST_B10 * 0.00341802 + 149.0 - 273.15
-SR    = SR_Bx * 0.0000275 - 0.2
 ```
 
-No additional QA mask is applied during download. The quality report in `result.json` separately records native LST coverage, clear-LST coverage, QA_PIXEL bit counts, water fraction, radiometric saturation and clear/unsaturated SR coverage.
+No additional QA mask is applied during download. The quality report in `result.json` separately records native LST coverage, clear-LST coverage, QA_PIXEL bit counts, water fraction and radiometric saturation.
 
-Recommended clear-pixel logic for downstream experiments is:
+Recommended clear-pixel logic for downstream validation is:
 
 ```text
 QA_PIXEL bits 0,1,2,3,4,5 == 0
 ```
 
-Water (bit 7) is preserved. `QA_RADSAT` is preserved and reported separately rather than being used as a blanket mask that can erase an otherwise valid LST pixel because a reflective band is saturated.
+Water (bit 7) is preserved. `QA_RADSAT` is preserved as a diagnostic rather than used to erase otherwise valid LST pixels.
+
+Reflective Landsat SR bands are intentionally **not** stored in this persistent validation cache. SR-derived predictors belong to the dedicated scaling-factor workflow (`scaling_factors_schema` / `submit_scaling_factors_job`).
+
+The Landsat workflow treats repository-cache persistence as best-effort. If the requested raster has already been produced and uploaded as an Actions Artifact, a cache push failure does not make the data unusable. `get_job_result` returns any non-expired matching Artifact even when the overall workflow conclusion is not `success`, together with a warning so the caller can inspect `result.json`.
 
 MCP tools:
 
 - `landsat_schema`
 - `submit_landsat_job`
 - `landsat_job_status`
+- `get_job_result`
 
 ## MCP tools
 
@@ -276,8 +281,9 @@ Remote workflow dispatch:
 
 Earth Engine:
 
-- `EE_PROJECT`
-- `EE_SERVICE_ACCOUNT_JSON` or `EE_SERVICE_ACCOUNT_JSON_BASE64`
+- Vercel-direct Earth Engine tools use `EE_PROJECT` plus `EE_SERVICE_ACCOUNT_JSON` or `EE_SERVICE_ACCOUNT_JSON_BASE64`.
+- GitHub Actions ERA5/MODIS/Landsat workers authenticate separately using repository secret `EE_USER_CREDENTIALS_JSON_BASE64`, with `EE_SERVICE_ACCOUNT_JSON_BASE64` as an optional fallback.
+- `gee_auth_status` checks **Vercel-direct** Earth Engine access only; it must not be used to decide whether Actions workers are available.
 - optional `GEE_GCS_BUCKET` only for Earth Engine exports
 - `REMOTE_MCP_TOKEN`
 
