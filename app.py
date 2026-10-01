@@ -21,6 +21,9 @@ from mcp.server.transport_security import TransportSecuritySettings
 ZENODO_API = "https://zenodo.org/api"
 ELITE_TITLE = "ELITE land surface temperature: FY-4A/AGRI hourly 4km seamless LST"
 KNOWN_ELITE_RECORDS = {2019: 10672052, 2021: 8378354}
+TPDC_ANCFDS_DATASET_ID = "4adbc070-afb3-4e9c-85a0-2ce68d1388ad"
+TPDC_ANCFDS_DOI = "10.11888/RemoteSen.tpdc.303249"
+TPDC_ANCFDS_PAGE = f"https://data.tpdc.ac.cn/en/data/{TPDC_ANCFDS_DATASET_ID}"
 ERA5_LAND_BANDS = {
     "T2_C": {"source": "temperature_2m", "unit": "degC"},
     "TD2_C": {"source": "dewpoint_temperature_2m", "unit": "degC"},
@@ -45,7 +48,7 @@ DATASETS = {
 mcp = MCPServer(
     "Remote Sensing MCP",
     instructions=(
-        "Remote-sensing data gateway for ELITE FY-4A, ERA5-Land, MODIS, Landsat and scaling factors. "
+        "Remote-sensing data gateway for ELITE FY-4A, TPDC ANCFDS-LST, ERA5-Land, MODIS, Landsat and scaling factors. "
         "Heavy downloads are delegated to GitHub Actions. When the user asks to download data, do not "
         "stop after returning a job id or completed status: after the job succeeds, call get_job_result "
         "to obtain a short-lived artifact URL, then use the client environment to save the ZIP to the "
@@ -227,6 +230,16 @@ def _github_landsat_config() -> tuple[str, str, str, str]:
     return repo, workflow, ref, token
 
 
+def _github_tpdc_ancfds_config() -> tuple[str, str, str, str]:
+    repo = os.getenv("GITHUB_WORKFLOW_REPOSITORY", "ygangxian-cpu/remote-sensing-mcp")
+    workflow = os.getenv("GITHUB_TPDC_ANCFDS_WORKFLOW_ID", "remote-sensing-tpdc-ancfds.yml")
+    ref = os.getenv("GITHUB_WORKFLOW_REF", "main")
+    token = os.getenv("GITHUB_WORKFLOW_TOKEN", "")
+    if not token:
+        raise RuntimeError("GitHub Actions remote dispatch is not configured.")
+    return repo, workflow, ref, token
+
+
 def _github_scaling_config() -> tuple[str, str, str, str]:
     repo = os.getenv("GITHUB_WORKFLOW_REPOSITORY", "ygangxian-cpu/remote-sensing-mcp")
     workflow = os.getenv("GITHUB_SCALING_WORKFLOW_ID", "remote-sensing-scaling-factors.yml")
@@ -389,6 +402,7 @@ def service_status() -> dict[str, Any]:
         "era5_land_worker_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
         "modis_lst_worker_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
         "landsat_worker_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
+        "tpdc_ancfds_worker_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
         "scaling_factors_worker_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
         "era5_land_cache_backend": "github_repository_roi",
         "modis_lst_cache_backend": "github_repository_roi",
@@ -397,6 +411,9 @@ def service_status() -> dict[str, Any]:
         "landsat_cache_backend": "github_repository_roi",
         "landsat_cache_version": "v2",
         "landsat_quality_reporting": True,
+        "tpdc_ancfds_public_api": True,
+        "tpdc_ancfds_cache_backend": "github_repository_roi",
+        "tpdc_ancfds_cache_version": "v1",
         "qa_preserving_downloads": True,
         "scaling_factors_cache_backend": "github_repository_roi",
         "job_result_download_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
@@ -1052,6 +1069,155 @@ def scaling_factors_job_status(job_key: str) -> dict[str, Any]:
 
 
 @mcp.tool()
+def tpdc_ancfds_lst_schema() -> dict[str, Any]:
+    """Describe the public TPDC ANCFDS-LST hourly 0.01-degree product."""
+    return {
+        "dataset": "ANCFDS-LST",
+        "doi": TPDC_ANCFDS_DOI,
+        "dataset_id": TPDC_ANCFDS_DATASET_ID,
+        "dataset_page": TPDC_ANCFDS_PAGE,
+        "coverage": "2018-2023",
+        "temporal_resolution": "1 hour",
+        "time_standard": "UTC",
+        "spatial_resolution": "0.01 degree",
+        "crs": "EPSG:4326",
+        "source_format": "GeoTIFF",
+        "source_dtype": "uint16",
+        "source_nodata": 0,
+        "source_scale_factor": 0.1,
+        "source_unit": "kelvin",
+        "bands": {
+            "1": "T_dir: directional FY-4A/AGRI-view LST",
+            "2": "T_nadir: angular-normalized nadir LST",
+            "3": "T_hemi: hemispherical-equivalent LST",
+        },
+        "access": "TPDC public file API; file listing and file download work without TPDC login",
+        "mcp_job_limit": "24 source hours per job",
+        "output_units": ["celsius", "kelvin"],
+    }
+
+
+@mcp.tool()
+def tpdc_ancfds_storage_layout() -> dict[str, Any]:
+    """Describe TPDC ANCFDS-LST download, crop and repository-cache behavior."""
+    return {
+        "architecture": "TPDC public full-domain GeoTIFF -> temporary Actions download -> ROI crop -> GitHub ROI cache -> artifact",
+        "raw_source_storage": "temporary only; full-domain source GeoTIFF is deleted after ROI crop",
+        "source_size": "typically about 100-140 MB per hourly file",
+        "cache": (
+            "data/tpdc_ancfds/v1/<region>-<bbox_hash>/YYYY/MM/DD/"
+            "ANCFDS_FY4A_YYYYMMDD_HH00_<C|K>.tif"
+        ),
+        "cache_backend": "github_repository_roi",
+        "artifact": "requested ROI GeoTIFFs plus result.json",
+        "source_dataset_id": TPDC_ANCFDS_DATASET_ID,
+        "source_doi": TPDC_ANCFDS_DOI,
+    }
+
+
+@mcp.tool()
+def submit_tpdc_ancfds_lst_job(
+    start_date: str,
+    end_date: str,
+    bbox: list[float],
+    region_name: str = "",
+    hours: list[int] | None = None,
+    output_unit: str = "celsius",
+) -> dict[str, Any]:
+    """Submit TPDC ANCFDS-LST hourly downloads and WGS84 ROI crops to GitHub Actions."""
+    if len(bbox) != 4:
+        raise ValueError("bbox must be [xmin,ymin,xmax,ymax]")
+    xmin, ymin, xmax, ymax = map(float, bbox)
+    if not (-180 <= xmin < xmax <= 180 and -90 <= ymin < ymax <= 90):
+        raise ValueError("Invalid WGS84 bbox")
+    if output_unit not in {"celsius", "kelvin"}:
+        raise ValueError("output_unit must be celsius or kelvin")
+
+    start = datetime.fromisoformat(start_date[:10])
+    end = datetime.fromisoformat(end_date[:10])
+    if end <= start:
+        raise ValueError("end_date must be after start_date")
+    day_count = (end - start).days
+    hour_values = list(range(24)) if hours is None else sorted(set(int(x) for x in hours))
+    if not hour_values or any(hour < 0 or hour > 23 for hour in hour_values):
+        raise ValueError("hours must contain integers from 0 to 23")
+    source_hours = day_count * len(hour_values)
+    if source_hours > 24:
+        raise ValueError(
+            "One ANCFDS-LST job is limited to 24 source hours. "
+            "Use a shorter date range or select fewer hours."
+        )
+
+    repo, workflow, ref, token = _github_tpdc_ancfds_config()
+    job_key = f"ancfds-{int(time.time())}-{uuid.uuid4().hex[:8]}"
+    response = requests.post(
+        f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}/dispatches",
+        timeout=30,
+        headers=_github_headers(token),
+        json={
+            "ref": ref,
+            "inputs": {
+                "job_key": job_key,
+                "start_date": start_date,
+                "end_date": end_date,
+                "bbox": ",".join(str(float(x)) for x in bbox),
+                "region_name": region_name,
+                "hours": "all" if hours is None else ",".join(str(x) for x in hour_values),
+                "output_unit": output_unit,
+            },
+        },
+    )
+    if response.status_code != 204:
+        raise RuntimeError(
+            f"GitHub TPDC ANCFDS dispatch failed: {response.status_code} {response.text[:300]}"
+        )
+    return {
+        "submitted": True,
+        "job_key": job_key,
+        "repository": repo,
+        "workflow": workflow,
+        "dataset": "ANCFDS-LST",
+        "doi": TPDC_ANCFDS_DOI,
+        "region_name": region_name or None,
+        "source_hours": source_hours,
+        "hours_utc": hour_values,
+        "output_unit": output_unit,
+        "status_tool": "tpdc_ancfds_job_status",
+        "result_tool": "get_job_result",
+        "storage_architecture": (
+            "TPDC full-domain temporary download -> GitHub ROI cache -> Actions artifact"
+        ),
+    }
+
+
+@mcp.tool()
+def tpdc_ancfds_job_status(job_key: str) -> dict[str, Any]:
+    """Look up a submitted TPDC ANCFDS-LST GitHub Actions job."""
+    repo, workflow, _, token = _github_tpdc_ancfds_config()
+    response = requests.get(
+        f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}/runs",
+        params={"event": "workflow_dispatch", "per_page": 50},
+        timeout=30,
+        headers=_github_headers(token),
+    )
+    response.raise_for_status()
+    for run in response.json().get("workflow_runs", []):
+        title = str(run.get("display_title") or run.get("name") or "")
+        if job_key in title:
+            return {
+                "found": True,
+                "job_key": job_key,
+                "run_id": run.get("id"),
+                "status": run.get("status"),
+                "conclusion": run.get("conclusion"),
+                "html_url": run.get("html_url"),
+                "created_at": run.get("created_at"),
+                "updated_at": run.get("updated_at"),
+            }
+    return {"found": False, "job_key": job_key}
+
+
+@mcp.tool()
 def gee_auth_status(project: str | None = None) -> dict[str, Any]:
     """Validate the Vercel Earth Engine service-account configuration."""
     try:
@@ -1205,8 +1371,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Remote Sensing MCP",
-    description="ELITE FY-4A + ERA5-Land + MODIS + Landsat + scaling factors MCP gateway",
-    version="0.10.0",
+    description="ELITE FY-4A + TPDC ANCFDS-LST + ERA5-Land + MODIS + Landsat + scaling factors MCP gateway",
+    version="0.11.0",
     lifespan=lifespan,
 )
 
@@ -1235,7 +1401,7 @@ def health():
     return {
         "ok": True,
         "service": "remote-sensing-mcp",
-        "version": "0.10.0",
+        "version": "0.11.0",
         "vercel": bool(os.getenv("VERCEL")),
         "ee_configured": bool(
             os.getenv("EE_SERVICE_ACCOUNT_JSON") or os.getenv("EE_SERVICE_ACCOUNT_JSON_BASE64")
@@ -1246,6 +1412,8 @@ def health():
         "era5_land_repo_cache_enabled": True,
         "modis_lst_repo_cache_enabled": True,
         "landsat_repo_cache_enabled": True,
+        "tpdc_ancfds_repo_cache_enabled": True,
+        "tpdc_ancfds_public_api_enabled": True,
         "scaling_factors_repo_cache_enabled": True,
         "job_result_download_enabled": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
         "auth_enabled": bool(REMOTE_TOKEN),
