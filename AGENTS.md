@@ -156,3 +156,16 @@ For normal experiments, this Data Plane should not be modified unless the reques
 Model parameters, feature selection, Notebook layout, ablations, metrics, and paper-facing evaluation belong to `yuyan3616/jiangchidu4kmto100m` and should not trigger changes here.
 
 Each formal experiment should reference the exact Data Plane source/provenance through the Science Plane experiment manifest. Kaggle execution should consume that standardized handoff without creating a reverse dependency on this repository.
+
+
+## TPDC ANCFDS-LST 数据源
+
+- 已接入 TPDC ANCFDS-LST（DOI: `10.11888/RemoteSen.tpdc.303249`，dataset ID: `4adbc070-afb3-4e9c-85a0-2ce68d1388ad`）。
+- TPDC 文件列表和单文件下载接口当前可匿名访问，不需要把 TPDC 账号或 Token 写入仓库。
+- 正式 MCP 工具链：`tpdc_ancfds_lst_schema` → `submit_tpdc_ancfds_lst_job` → `tpdc_ancfds_job_status` → `get_job_result`。
+- 正式 GitHub Actions：`.github/workflows/remote-sensing-tpdc-ancfds.yml`；worker：`tpdc_ancfds_worker.py`。
+- 数据为 0.01°、逐小时 UTC、3 波段 GeoTIFF：T_dir / T_nadir / T_hemi；源数据 uint16、nodata=0、scale=0.1 K。
+- 禁止把全圆盘原始 TIFF 持久化进仓库。每个源小时约 100–140 MB，只临时下载后裁 ROI；仓库只缓存 ROI：
+  `data/tpdc_ancfds/v1/<region>-<bbox_hash>/YYYY/MM/DD/ANCFDS_FY4A_YYYYMMDD_HH00_<C|K>.tif`。
+- 单个 MCP Job 最多 24 个源小时，避免 Actions 下载规模失控；多日任务应拆分。
+- 2019-09-24 04:00 UTC 张掖正式 E2E 已通过，ROI 缓存已写入仓库。
