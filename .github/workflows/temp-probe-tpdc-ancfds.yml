@@ -1,0 +1,34 @@
+name: TEMP Probe TPDC ANCFDS-LST
+run-name: "TPDC probe ANCFDS-LST"
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "experiments/probe_tpdc_ancfds.py"
+      - ".github/workflows/temp-probe-tpdc-ancfds.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install probe dependencies
+        run: pip install requests beautifulsoup4
+      - name: Probe TPDC dataset page and frontend endpoints
+        run: python experiments/probe_tpdc_ancfds.py
+      - name: Upload probe report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tpdc-ancfds-probe
+          path: output/tpdc_probe
+          if-no-files-found: warn
+          retention-days: 1
