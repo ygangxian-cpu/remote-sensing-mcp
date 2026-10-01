@@ -151,3 +151,45 @@ for name, url in api_probes:
         print(json.dumps(rec, ensure_ascii=False))
 
 (OUT / "probe.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+print("\n=== LST TREE PROBE ===")
+tree_base = "https://data.tpdc.ac.cn/file/file/getFileDataList"
+root_lst_id = "5ff4d9fc-5562-45a3-bf77-86495a1647ff"
+tree_records = []
+
+def list_children(parent_id: str):
+    rr = session.get(tree_base, params={"parentId": parent_id}, timeout=60)
+    try:
+        payload = rr.json()
+    except Exception:
+        payload = {"raw": rr.text[:3000]}
+    print("CHILDREN", parent_id, rr.status_code, json.dumps(payload, ensure_ascii=False)[:12000])
+    return (payload.get("data") or []) if isinstance(payload, dict) else []
+
+level1 = list_children(root_lst_id)
+tree_records.append({"parent": root_lst_id, "children": level1})
+
+# Follow likely 2019 branch, otherwise inspect first few directories only.
+candidates1 = [x for x in level1 if str(x.get("type","")).lower() == "dir" and ("2019" in str(x.get("name","")) or "2019" in str(x.get("path","")))]
+if not candidates1:
+    candidates1 = [x for x in level1 if str(x.get("type","")).lower() == "dir"][:8]
+
+for node1 in candidates1:
+    level2 = list_children(str(node1["id"]))
+    tree_records.append({"parent": node1, "children": level2})
+    candidates2 = [x for x in level2 if str(x.get("type","")).lower() == "dir" and any(k in str(x.get("name","")) + str(x.get("path","")) for k in ("09", "201909", "2019-09", "2019"))]
+    if not candidates2:
+        candidates2 = [x for x in level2 if str(x.get("type","")).lower() == "dir"][:5]
+    for node2 in candidates2:
+        level3 = list_children(str(node2["id"]))
+        tree_records.append({"parent": node2, "children": level3})
+        candidates3 = [x for x in level3 if str(x.get("type","")).lower() == "dir" and any(k in str(x.get("name","")) + str(x.get("path","")) for k in ("24", "0924", "20190924", "2019-09-24"))]
+        if not candidates3:
+            candidates3 = [x for x in level3 if str(x.get("type","")).lower() == "dir"][:3]
+        for node3 in candidates3:
+            level4 = list_children(str(node3["id"]))
+            tree_records.append({"parent": node3, "children": level4})
+
+result["tree_records"] = tree_records
+(OUT / "probe.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
