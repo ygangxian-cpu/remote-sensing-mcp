@@ -1,0 +1,61 @@
+name: TEMP ANCFDS Full Day 2019-09-24
+
+on:
+  push:
+    paths:
+      - ".github/workflows/temp-ancfds-full-day-20190924.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tpdc-ancfds-repository-cache
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests numpy rasterio
+
+      - name: Fetch full day ANCFDS
+        run: >-
+          python tpdc_ancfds_worker.py
+          --start-date '2019-09-24'
+          --end-date '2019-09-25'
+          --bbox '99.86,38.67,100.5,39.43'
+          --region-name 'zhangye'
+          --hours 'all'
+          --output-unit 'celsius'
+
+      - name: Commit cache
+        run: |
+          if [ -n "$(git status --porcelain -- data/tpdc_ancfds)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/tpdc_ancfds
+            git commit -m "data: cache ANCFDS full day Zhangye 2019-09-24 [skip vercel]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: ancfds-zhangye-20190924-full-day
+          path: |
+            output/tpdc_ancfds/**/*.tif
+            output/result.json
+          if-no-files-found: error
+          retention-days: 1
