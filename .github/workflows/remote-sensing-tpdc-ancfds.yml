@@ -1,0 +1,95 @@
+name: Remote Sensing TPDC ANCFDS-LST Worker
+run-name: "TPDC ANCFDS-LST ${{ inputs.job_key }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_key:
+        required: true
+        type: string
+      start_date:
+        description: Inclusive date
+        required: true
+        type: string
+      end_date:
+        description: Exclusive date
+        required: true
+        type: string
+      bbox:
+        description: xmin,ymin,xmax,ymax EPSG:4326
+        required: true
+        type: string
+      region_name:
+        required: false
+        default: ""
+        type: string
+      hours:
+        description: all or comma-separated UTC hours 0..23
+        required: false
+        default: "all"
+        type: string
+      output_unit:
+        description: celsius or kelvin
+        required: false
+        default: "celsius"
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tpdc-ancfds-repository-cache
+  cancel-in-progress: false
+
+jobs:
+  ancfds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests numpy rasterio
+
+      - name: Fetch and crop TPDC ANCFDS-LST
+        run: >-
+          python tpdc_ancfds_worker.py
+          --start-date '${{ inputs.start_date }}'
+          --end-date '${{ inputs.end_date }}'
+          --bbox '${{ inputs.bbox }}'
+          --region-name '${{ inputs.region_name }}'
+          --hours '${{ inputs.hours }}'
+          --output-unit '${{ inputs.output_unit }}'
+
+      - name: Commit new ANCFDS ROI cache
+        run: |
+          if [ -n "$(git status --porcelain -- data/tpdc_ancfds)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/tpdc_ancfds
+            git commit -m "data: cache TPDC ANCFDS-LST ${{ inputs.region_name }} ${{ inputs.start_date }} [skip vercel]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+
+      - name: Cleanup source files
+        if: always()
+        run: rm -rf output/work
+
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "${{ inputs.job_key }}"
+          path: |
+            output/tpdc_ancfds/**/*.tif
+            output/result.json
+          if-no-files-found: warn
+          retention-days: 1
