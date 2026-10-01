@@ -56,6 +56,51 @@ For each requested hour:
 The workflow is serialized with an `elite-china-cache` concurrency group to avoid simultaneous cache writers.
 
 
+
+## TPDC ANCFDS-LST hourly 0.01° all-weather LST
+
+Dataset:
+
+- DOI: `10.11888/RemoteSen.tpdc.303249`
+- TPDC dataset ID: `4adbc070-afb3-4e9c-85a0-2ce68d1388ad`
+- Coverage: 2018–2023
+- Temporal resolution: hourly (UTC)
+- Spatial resolution: 0.01°
+- Source GeoTIFF bands: `T_dir`, `T_nadir`, `T_hemi`
+- Source encoding: `uint16`, nodata `0`, scale factor `0.1 K`
+
+The TPDC file-list and file-download endpoints are publicly accessible for this dataset; no TPDC account token is required by the current worker.
+
+The source archive is about 6.27 TB, so full-domain hourly GeoTIFFs are **never committed** to this repository. Each requested source file is downloaded temporarily by GitHub Actions, cropped to the requested WGS84 ROI, converted to Celsius or Kelvin, cached as a small ROI GeoTIFF, and then removed.
+
+Repository cache:
+
+```text
+data/tpdc_ancfds/v1/<region>-<bbox_hash>/YYYY/MM/DD/
+└── ANCFDS_FY4A_YYYYMMDD_HH00_<C|K>.tif
+```
+
+One source hour is typically about 100–140 MB. To keep jobs bounded, one MCP request may retrieve at most 24 source hours.
+
+MCP tools:
+
+- `tpdc_ancfds_lst_schema`
+- `tpdc_ancfds_storage_layout`
+- `submit_tpdc_ancfds_lst_job`
+- `tpdc_ancfds_job_status`
+- `get_job_result`
+
+Example request for the formal Zhangye ROI and one hour:
+
+```text
+start_date: 2019-09-24
+end_date:   2019-09-25
+bbox:       [99.86, 38.67, 100.5, 39.43]
+hours:      [4]
+output_unit: celsius
+```
+
+
 ## ERA5-Land hourly ROI cache
 
 ERA5-Land is acquired from Google Earth Engine by a dedicated GitHub Actions worker.
@@ -220,12 +265,13 @@ The requested bbox must be inside the configured China cache extent.
 
 ## Vercel environment variables
 
-Remote ELITE dispatch:
+Remote workflow dispatch:
 
 - `GITHUB_WORKFLOW_TOKEN`
 - `REMOTE_MCP_TOKEN`
 - `GITHUB_WORKFLOW_REPOSITORY=ygangxian-cpu/remote-sensing-mcp`
 - `GITHUB_WORKFLOW_ID=remote-sensing-elite.yml`
+- optional `GITHUB_TPDC_ANCFDS_WORKFLOW_ID=remote-sensing-tpdc-ancfds.yml`
 - `GITHUB_WORKFLOW_REF=main`
 
 Earth Engine:
