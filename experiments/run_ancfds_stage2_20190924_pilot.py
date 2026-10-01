@@ -423,6 +423,23 @@ def apply_stage2(parent1, surface_anomaly):
     return pred100.astype("float32")
 
 
+def harmonize_parent_to_elite(parent1, y4, iterations=3):
+    """Use ANCFDS only for within-4km structure while retaining ELITE 4km means.
+
+    This mirrors the ILC-v1 conservation idea more closely than feeding raw
+    ANCFDS absolute temperatures directly into Stage2.
+    """
+    h = parent1.astype("float32", copy=True)
+    for _ in range(iterations):
+        back4 = reproject_array(h, PROFILES["1km"], PROFILES["4km"], Resampling.average)
+        correction4 = y4 - back4
+        correction1 = reproject_array(
+            correction4, PROFILES["4km"], PROFILES["1km"], Resampling.nearest
+        )
+        h = h + np.nan_to_num(correction1, nan=0.0).astype("float32")
+    return h.astype("float32")
+
+
 def basic_metrics(ref, pred):
     valid = np.isfinite(ref) & np.isfinite(pred)
     y = ref[valid].astype("float64")
@@ -598,6 +615,69 @@ def plot_feature_importance(importance):
     plt.close(fig)
 
 
+def plot_harmonized_comparison(metrics_df):
+    order = ["T_DIR", "T_NADIR", "T_HEMI"]
+    labels = ["P0", "ILC-v1"] + [f"Harmonized {n}" for n in order]
+    values1 = [
+        PRIOR_R2["P0_1km"], PRIOR_R2["ILC-v1_1km"],
+        *[
+            float(metrics_df.loc[
+                metrics_df["method"] == f"{n}_HARM_1km_parent", "r2"
+            ].iloc[0])
+            for n in order
+        ],
+    ]
+    values100 = [
+        PRIOR_R2["P0_100m"], PRIOR_R2["ILC-v1_100m"],
+        *[
+            float(metrics_df.loc[
+                metrics_df["method"] == f"{n}_HARM_stage2_100m", "r2"
+            ].iloc[0])
+            for n in order
+        ],
+    ]
+    x = np.arange(len(labels))
+    width = 0.36
+    fig, ax = plt.subplots(figsize=(12, 5.7), constrained_layout=True)
+    ax.bar(x - width / 2, values1, width, label="1 km R²")
+    ax.bar(x + width / 2, values100, width, label="100 m R²")
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=15)
+    ax.set_ylabel("R²")
+    ax.set_title("ILC-like test: ANCFDS local structure + ELITE 4 km absolute parent")
+    ax.legend()
+    ymin = min(0.0, min(values1 + values100) - 0.05)
+    ymax = min(1.0, max(values1 + values100) + 0.12)
+    ax.set_ylim(ymin, ymax)
+    for xpos, v in zip(x - width / 2, values1):
+        ax.text(xpos, v + 0.012, f"{v:.3f}", ha="center", va="bottom", fontsize=9)
+    for xpos, v in zip(x + width / 2, values100):
+        ax.text(xpos, v + 0.012, f"{v:.3f}", ha="center", va="bottom", fontsize=9)
+    fig.savefig(OUT / "06_harmonized_r2_comparison.png", dpi=180)
+    plt.close(fig)
+
+
+def plot_harmonized_spatial(ref100, preds):
+    order = ["T_DIR", "T_NADIR", "T_HEMI"]
+    valid_ref = ref100[np.isfinite(ref100)]
+    lo, hi = np.nanpercentile(valid_ref, [2, 98])
+    fig, axes = plt.subplots(2, 3, figsize=(14, 8), constrained_layout=True)
+    for j, name in enumerate(order):
+        axes[0, j].imshow(preds[name], vmin=lo, vmax=hi)
+        m = basic_metrics(ref100, preds[name])
+        axes[0, j].set_title(
+            f"{name} harmonized + Stage2\nR²={m['r2']:.3f}, RMSE={m['rmse']:.2f}°C"
+        )
+        axes[0, j].axis("off")
+        err = preds[name] - ref100
+        axes[1, j].imshow(err, vmin=-8, vmax=8)
+        axes[1, j].set_title(f"{name} error")
+        axes[1, j].axis("off")
+    fig.suptitle("ANCFDS local anomaly + ELITE parent → Stage2 → 100 m")
+    fig.savefig(OUT / "07_harmonized_spatial.png", dpi=180)
+    plt.close(fig)
+
+
 def landcover_metrics(ref100, preds, landcover100):
     rows = []
     classes = sorted(int(x) for x in np.unique(landcover100[np.isfinite(landcover100)]))
@@ -626,6 +706,10 @@ def main():
 
     print("=== Load ANCFDS parents ===", flush=True)
     parents, ancfds_meta = load_ancfds_parents()
+    harmonized_parents = {
+        name: harmonize_parent_to_elite(parent, y4)
+        for name, parent in parents.items()
+    }
 
     print("=== Train frozen Stage2 RF once ===", flush=True)
     surface_anomaly, raw100, importance = build_surface_anomaly(features, y4)
@@ -667,11 +751,56 @@ def main():
         write_tif(OUT / f"{name.lower()}_parent_only_100m.tif", po, PROFILES["100m"], f"{name}_PARENT_ONLY_C")
         write_tif(OUT / f"{name.lower()}_stage2_100m.tif", pred, PROFILES["100m"], f"{name}_STAGE2_C")
 
+    harmonized_preds = {}
+    harmonized_parent_only = {}
+    for name, parent in harmonized_parents.items():
+        pm = basic_metrics(ref1, parent)
+        cons4 = basic_metrics(
+            y4,
+            reproject_array(parent, PROFILES["1km"], PROFILES["4km"], Resampling.average),
+        )
+        rows.append({
+            "date": DATE, "hour_utc": HOUR, "method": f"{name}_HARM_1km_parent",
+            "resolution": "1km", **pm,
+            "conservation_4km_rmse": cons4["rmse"],
+            "conservation_4km_bias": cons4["bias"],
+        })
+
+        po = parent_only_from_1km(parent)
+        harmonized_parent_only[name] = po
+        pom = basic_metrics(ref100, po)
+        rows.append({
+            "date": DATE, "hour_utc": HOUR, "method": f"{name}_HARM_parent_only_100m",
+            "resolution": "100m", **pom, **subpixel_metrics(ref100, po),
+        })
+
+        pred = apply_stage2(parent, surface_anomaly)
+        harmonized_preds[name] = pred
+        m = basic_metrics(ref100, pred)
+        rows.append({
+            "date": DATE, "hour_utc": HOUR, "method": f"{name}_HARM_stage2_100m",
+            "resolution": "100m", **m, **subpixel_metrics(ref100, pred),
+        })
+        conservation1 = basic_metrics(parent, parent_mean_10x(pred, parent.shape))
+        rows[-1]["conservation_1km_rmse"] = conservation1["rmse"]
+        rows[-1]["conservation_1km_bias"] = conservation1["bias"]
+
+        write_tif(
+            OUT / f"{name.lower()}_harm_parent_1km.tif",
+            parent, PROFILES["1km"], f"{name}_HARM_C"
+        )
+        write_tif(
+            OUT / f"{name.lower()}_harm_stage2_100m.tif",
+            pred, PROFILES["100m"], f"{name}_HARM_STAGE2_C"
+        )
+
     metrics = pd.DataFrame(rows)
     metrics.to_csv(OUT / "metrics.csv", index=False)
 
     lc100 = features["100m"]["landcover"]
-    lcdf = landcover_metrics(ref100, {f"{k}_stage2": v for k, v in preds.items()}, lc100)
+    lc_preds = {f"{k}_raw_stage2": v for k, v in preds.items()}
+    lc_preds.update({f"{k}_harm_stage2": v for k, v in harmonized_preds.items()})
+    lcdf = landcover_metrics(ref100, lc_preds, lc100)
     lcdf.to_csv(OUT / "landcover_metrics.csv", index=False)
 
     plot_spatial(ref100, preds, parent_only)
@@ -679,9 +808,23 @@ def main():
     plot_r2_comparison(metrics)
     plot_parent_stage2_delta(metrics)
     plot_feature_importance(importance)
+    plot_harmonized_comparison(metrics)
+    plot_harmonized_spatial(ref100, harmonized_preds)
 
-    best_1_row = metrics[metrics["method"].str.endswith("_1km_parent")].sort_values("r2", ascending=False).iloc[0]
-    best_100_row = metrics[metrics["method"].str.endswith("_stage2_100m")].sort_values("r2", ascending=False).iloc[0]
+    raw_1 = metrics[
+        metrics["method"].isin([f"{n}_1km_parent" for n in parents])
+    ].sort_values("r2", ascending=False).iloc[0]
+    raw_100 = metrics[
+        metrics["method"].isin([f"{n}_stage2_100m" for n in parents])
+    ].sort_values("r2", ascending=False).iloc[0]
+    harm_1 = metrics[
+        metrics["method"].isin([f"{n}_HARM_1km_parent" for n in parents])
+    ].sort_values("r2", ascending=False).iloc[0]
+    harm_100 = metrics[
+        metrics["method"].isin([f"{n}_HARM_stage2_100m" for n in parents])
+    ].sort_values("r2", ascending=False).iloc[0]
+    best_1_row = harm_1
+    best_100_row = harm_100
 
     summary = {
         "experiment": "ANCFDS 1km replacement -> frozen Stage2 -> 100m",
@@ -695,19 +838,33 @@ def main():
             "1km parent conservation after Stage2."
         ),
         "prior_reported_r2": PRIOR_R2,
-        "best_ancfds_1km": {
-            "method": str(best_1_row["method"]),
-            "r2": float(best_1_row["r2"]),
-            "rmse": float(best_1_row["rmse"]),
-            "mae": float(best_1_row["mae"]),
-            "bias": float(best_1_row["bias"]),
+        "best_raw_ancfds_1km": {
+            "method": str(raw_1["method"]),
+            "r2": float(raw_1["r2"]),
+            "rmse": float(raw_1["rmse"]),
+            "mae": float(raw_1["mae"]),
+            "bias": float(raw_1["bias"]),
         },
-        "best_ancfds_100m": {
-            "method": str(best_100_row["method"]),
-            "r2": float(best_100_row["r2"]),
-            "rmse": float(best_100_row["rmse"]),
-            "mae": float(best_100_row["mae"]),
-            "bias": float(best_100_row["bias"]),
+        "best_raw_ancfds_100m": {
+            "method": str(raw_100["method"]),
+            "r2": float(raw_100["r2"]),
+            "rmse": float(raw_100["rmse"]),
+            "mae": float(raw_100["mae"]),
+            "bias": float(raw_100["bias"]),
+        },
+        "best_harmonized_ancfds_1km": {
+            "method": str(harm_1["method"]),
+            "r2": float(harm_1["r2"]),
+            "rmse": float(harm_1["rmse"]),
+            "mae": float(harm_1["mae"]),
+            "bias": float(harm_1["bias"]),
+        },
+        "best_harmonized_ancfds_100m": {
+            "method": str(harm_100["method"]),
+            "r2": float(harm_100["r2"]),
+            "rmse": float(harm_100["rmse"]),
+            "mae": float(harm_100["mae"]),
+            "bias": float(harm_100["bias"]),
         },
         "delta_vs_prior_ilc_r2": {
             "1km": float(best_1_row["r2"] - PRIOR_R2["ILC-v1_1km"]),
@@ -732,6 +889,8 @@ def main():
         "notes": [
             "This is a same-day pilot at 04:00 UTC, matching the frozen validation hour.",
             "T_DIR, T_NADIR and T_HEMI are all tested rather than choosing a band in advance.",
+            "Raw-direct and ILC-like harmonized variants are both evaluated.",
+            "Harmonized means: preserve ANCFDS within-4km structure but force the 4km parent mean back to ELITE, matching the zero-mean ILC philosophy.",
             "The comparison chart includes the previously reported 2019-09-24 P0/ILC-v1 R2 values.",
         ],
     }
