@@ -7,7 +7,7 @@ import json
 import os
 import re
 import shutil
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -19,7 +19,7 @@ from google.oauth2 import service_account
 
 PROJECT_DEFAULT = "ee-ygangxian"
 NODATA = -9999.0
-CACHE_VERSION = "v2"
+CACHE_VERSION = "v3"
 COLLECTIONS = {
     "L8": "LANDSAT/LC08/C02/T1_L2",
     "L9": "LANDSAT/LC09/C02/T1_L2",
@@ -27,12 +27,6 @@ COLLECTIONS = {
 BANDS = [
     ("LST_C", "ST_B10", "degC"),
     ("ST_QA_K", "ST_QA", "K"),
-    ("SR_B2", "SR_B2", "reflectance"),
-    ("SR_B3", "SR_B3", "reflectance"),
-    ("SR_B4", "SR_B4", "reflectance"),
-    ("SR_B5", "SR_B5", "reflectance"),
-    ("SR_B6", "SR_B6", "reflectance"),
-    ("SR_B7", "SR_B7", "reflectance"),
     ("QA_PIXEL", "QA_PIXEL", "raw_qa_bitfield"),
     ("QA_RADSAT", "QA_RADSAT", "raw_qa_bitfield"),
 ]
@@ -87,15 +81,14 @@ def prepare_scene(image):
     """Preserve native Landsat availability and QA; research masks are applied downstream."""
     lst = image.select("ST_B10").multiply(0.00341802).add(149.0).subtract(273.15).rename("LST_C")
     stqa = image.select("ST_QA").multiply(0.01).rename("ST_QA_K")
-    sr = (
-        image.select(["SR_B2", "SR_B3", "SR_B4", "SR_B5", "SR_B6", "SR_B7"])
-        .multiply(0.0000275)
-        .add(-0.2)
-    )
     qa_pixel = image.select("QA_PIXEL").rename("QA_PIXEL").toFloat()
     qa_radsat = image.select("QA_RADSAT").rename("QA_RADSAT").toFloat()
 
-    prepared = ee.Image.cat([lst, stqa, sr, qa_pixel, qa_radsat]).toFloat()
+    # The persistent Landsat cache is validation-oriented. Reflective SR bands
+    # are intentionally excluded here to keep each Git object well below the
+    # 100 MiB GitHub limit; spectral/downscaling factors are handled by the
+    # dedicated scaling-factors pipeline.
+    prepared = ee.Image.cat([lst, stqa, qa_pixel, qa_radsat]).toFloat()
     return ee.Image(
         prepared.copyProperties(
             image,
@@ -115,8 +108,8 @@ def _landsat_quality_summary(
 ) -> dict[str, Any]:
     total = int(arrays[0].shape[0] * arrays[0].shape[1])
     lst = arrays[0]
-    qa = arrays[8]
-    radsat = arrays[9]
+    qa = arrays[2]
+    radsat = arrays[3]
 
     lst_valid = ~np.ma.getmaskarray(lst)
     qa_valid = ~np.ma.getmaskarray(qa)
@@ -149,10 +142,6 @@ def _landsat_quality_summary(
     clear_lst_count = int(clear_lst.sum())
 
     any_radsat = radsat_valid & (radsat_values != 0)
-    all_sr_native_valid = np.ones_like(lst_valid, dtype=bool)
-    for sr_idx in range(2, 8):
-        all_sr_native_valid &= ~np.ma.getmaskarray(arrays[sr_idx])
-    sr_model_ready = atmospheric_clear & radsat_valid & (radsat_values == 0) & all_sr_native_valid
 
     return {
         "total_pixels": total,
@@ -167,12 +156,11 @@ def _landsat_quality_summary(
         "water_ratio": _ratio(bit_counts["water"], total),
         "radiometric_saturation_pixels": int(any_radsat.sum()),
         "radiometric_saturation_ratio": _ratio(int(any_radsat.sum()), total),
-        "sr_clear_unsaturated_pixels": int(sr_model_ready.sum()),
-        "sr_clear_unsaturated_ratio": _ratio(int(sr_model_ready.sum()), total),
         "note": (
             "No QA mask is applied during download. clear_lst excludes fill/dilated cloud/"
             "cirrus/cloud/cloud shadow/snow for diagnostics only; water is retained. "
-            "QA_RADSAT is reported separately and is not used to erase LST."
+            "QA_RADSAT is preserved as a diagnostic and is not used to erase LST. "
+            "Reflective SR bands are provided by the separate scaling-factors pipeline."
         ),
     }
 
@@ -209,7 +197,7 @@ def cache_path(rid: str, ts: datetime, product_id: str) -> Path:
     return (
         Path("data") / "landsat_c2_l2" / CACHE_VERSION / rid
         / f"{ts:%Y}" / f"{ts:%m}" / f"{ts:%d}"
-        / f"{safe_name(product_id)}_L2_RAW_QA.tif"
+        / f"{safe_name(product_id)}_L2_LST_QA.tif"
     )
 
 
@@ -259,7 +247,8 @@ def download_scene(image, bbox: list[float], out: Path, metadata: dict[str, Any]
             acquired_utc=metadata["acquired_utc"],
             cloud_cover=str(metadata["cloud_cover"]),
             lst_conversion="ST_B10*0.00341802+149-273.15",
-            sr_conversion="SR_Bx*0.0000275-0.2",
+            cache_scope="validation_lst_qa",
+            spectral_factors="use scaling_factors workflow for SR-derived predictors",
             download_mask="native product availability only; no additional QA mask",
             recommended_clear_mask="QA_PIXEL bits 0,1,2,3,4,5 == 0; water retained",
             qa_radsat_policy="preserved and reported separately; not used to erase LST",
@@ -321,6 +310,7 @@ def main():
     lst = merged.toList(count)
     index_path = Path("data/metadata/landsat-index.json")
     index = load_index(index_path)
+    index["cache_version"] = CACHE_VERSION
     region_meta = index["regions"].setdefault(rid, {"region_name": args.region_name or None, "bbox": bbox, "scenes": {}})
     out_root = Path("output/landsat") / rid
     out_root.mkdir(parents=True, exist_ok=True)
@@ -339,13 +329,13 @@ def main():
             "time": source.get("system:time_start"),
         }).getInfo()
         product_id = str(props.get("product_id") or props.get("scene_id") or f"scene_{i}")
-        ts = datetime.utcfromtimestamp(float(props["time"]) / 1000.0)
+        ts = datetime.fromtimestamp(float(props["time"]) / 1000.0, UTC)
         metadata = {
             "product_id": product_id,
             "scene_id": props.get("scene_id"),
             "spacecraft": props.get("spacecraft"),
             "cloud_cover": float(props.get("cloud_cover") or 0),
-            "acquired_utc": ts.isoformat(),
+            "acquired_utc": ts.isoformat().replace("+00:00", "Z"),
         }
 
         cache = cache_path(rid, ts, product_id)
@@ -373,7 +363,7 @@ def main():
         })
 
     if created:
-        index["updated_at"] = datetime.utcnow().isoformat() + "Z"
+        index["updated_at"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         index_path.parent.mkdir(parents=True, exist_ok=True)
         index_path.write_text(json.dumps(index, indent=2, ensure_ascii=False, sort_keys=True), encoding="utf-8")
 
@@ -391,6 +381,11 @@ def main():
         "qa_preserved": True,
         "water_preserved": True,
         "cache_version": CACHE_VERSION,
+        "cache_scope": "validation_lst_qa",
+        "spectral_factors_note": (
+            "Persistent Landsat cache contains LST/QA only. "
+            "Use the scaling-factors workflow for SR-derived downscaling predictors."
+        ),
         "scene_count": count,
         "cache_hits": hits,
         "cache_created": created,
