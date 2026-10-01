@@ -284,12 +284,23 @@ def build_static_features():
 def load_landsat_reference():
     bands, meta = read_named(PATHS["landsat"], LANDSAT_FALLBACK)
     lst = choose_band(bands, ["LST_C"])
-    qa = choose_band(bands, ["QA_PIXEL"])
-    clear = np.isfinite(lst) & np.isfinite(qa)
-    q = np.zeros_like(qa, dtype="uint32")
-    q[np.isfinite(qa)] = np.rint(qa[np.isfinite(qa)]).astype("uint32")
-    for bit in [0, 1, 2, 3, 4, 5]:
-        clear &= (q & (1 << bit)) == 0
+
+    # 当前仓库中的 2019-09-24 是 legacy v1 cache：只有 8 个 band，
+    # QA_PIXEL 没有保留下来；该版本的 LST_C 已在下载阶段做过研究 QC。
+    # 若后续切到 v2 cache，则自动使用原始 QA_PIXEL bits 0..5 做 clear mask。
+    qa_key = next((k for k in bands if k.upper() == "QA_PIXEL"), None)
+    if qa_key is not None:
+        qa = bands[qa_key]
+        clear = np.isfinite(lst) & np.isfinite(qa)
+        q = np.zeros_like(qa, dtype="uint32")
+        q[np.isfinite(qa)] = np.rint(qa[np.isfinite(qa)]).astype("uint32")
+        for bit in [0, 1, 2, 3, 4, 5]:
+            clear &= (q & (1 << bit)) == 0
+        meta["reference_mask_mode"] = "QA_PIXEL bits 0..5 == 0"
+    else:
+        clear = np.isfinite(lst)
+        meta["reference_mask_mode"] = "legacy v1 cache finite LST_C (already QC-filtered)"
+
     ref_native = np.where(clear, lst, np.nan).astype("float32")
     ref100 = reproject_array(ref_native, meta["profile"], PROFILES["100m"], Resampling.average)
     ref100[(ref100 < -60) | (ref100 > 80)] = np.nan
