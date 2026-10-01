@@ -18,7 +18,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh workflow run remote-sensing-tpdc-ancfds.yml \
+          gh workflow run remote-sensing-tpdc-ancfds.yml -R ygangxian-cpu/remote-sensing-mcp \
             -f job_key=ancfds-formal-e2e-20190924-04 \
             -f start_date=2019-09-24 \
             -f end_date=2019-09-25 \
