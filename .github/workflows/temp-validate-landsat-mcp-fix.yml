@@ -1,0 +1,50 @@
+name: Temp Validate Landsat MCP Fix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/temp-validate-landsat-mcp-fix.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python syntax validation
+        run: python -m py_compile app.py landsat_worker.py
+
+      - name: Validate Landsat v3 contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          worker = Path("landsat_worker.py").read_text(encoding="utf-8")
+          app = Path("app.py").read_text(encoding="utf-8")
+          workflow = Path(".github/workflows/remote-sensing-landsat.yml").read_text(encoding="utf-8")
+          assert 'CACHE_VERSION = "v3"' in worker
+          assert '("SR_B2", "SR_B2", "reflectance")' not in worker
+          assert '"landsat_cache_version": "v3"' in app
+          assert '"workflow_succeeded": conclusion == "success"' in app
+          assert "continue-on-error: true" in workflow
+          print("Landsat v3 contract checks passed")
+          PY
+
+      - name: Wait for Vercel v0.11.1
+        shell: bash
+        run: |
+          for i in {1..18}; do
+            body="$(curl -fsS https://remote-sensing-mcp.vercel.app/health || true)"
+            echo "$body"
+            if echo "$body" | grep -q '"version":"0.11.1"'; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Production health did not report v0.11.1 in time"
+          exit 1
