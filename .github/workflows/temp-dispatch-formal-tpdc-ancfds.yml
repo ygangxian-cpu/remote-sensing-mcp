@@ -1,0 +1,28 @@
+name: TEMP Dispatch Formal TPDC ANCFDS
+run-name: "Dispatch formal TPDC ANCFDS"
+
+on:
+  push:
+    paths:
+      - ".github/workflows/temp-dispatch-formal-tpdc-ancfds.yml"
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch formal workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run remote-sensing-tpdc-ancfds.yml \
+            -f job_key=ancfds-formal-e2e-20190924-04 \
+            -f start_date=2019-09-24 \
+            -f end_date=2019-09-25 \
+            -f bbox='99.86,38.67,100.5,39.43' \
+            -f region_name=zhangye \
+            -f hours=4 \
+            -f output_unit=celsius
