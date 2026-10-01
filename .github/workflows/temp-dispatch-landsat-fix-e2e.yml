@@ -1,0 +1,21 @@
+name: Temp Dispatch Landsat Fix E2E
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/temp-dispatch-landsat-fix-e2e.yml"
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch formal Landsat workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api             --method POST             -H "Accept: application/vnd.github+json"             /repos/${{ github.repository }}/actions/workflows/remote-sensing-landsat.yml/dispatches             -f ref=main             -f 'inputs[job_key]=landsat-fix-e2e-20190924'             -f 'inputs[start_date]=2019-09-24'             -f 'inputs[end_date]=2019-09-25'             -f 'inputs[bbox]=99.86,38.67,100.5,39.43'             -f 'inputs[region_name]=zhangye'             -f 'inputs[satellites]=L8'             -f 'inputs[cloud_cover_max]=80'
