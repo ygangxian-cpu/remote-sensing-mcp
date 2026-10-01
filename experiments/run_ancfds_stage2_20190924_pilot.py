@@ -309,7 +309,7 @@ def load_landsat_reference():
 
 def load_elite_target():
     with rasterio.open(PATHS["elite"]) as src:
-        raw = src.read(1, masked=True).filled(np.nan).astype("float32")
+        raw = src.read(1, masked=True).astype("float32").filled(np.nan)
         p = profile_dict(src)
         tags = src.tags()
         scales = list(src.scales)
