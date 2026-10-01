@@ -402,6 +402,9 @@ def service_status() -> dict[str, Any]:
         "service": "remote-sensing-mcp",
         "elite_catalog": True,
         "elite_plan": True,
+        "earth_engine_configured": bool(
+            os.getenv("EE_SERVICE_ACCOUNT_JSON") or os.getenv("EE_SERVICE_ACCOUNT_JSON_BASE64")
+        ),
         "vercel_direct_earth_engine_configured": bool(
             os.getenv("EE_SERVICE_ACCOUNT_JSON") or os.getenv("EE_SERVICE_ACCOUNT_JSON_BASE64")
         ),
@@ -1436,6 +1439,9 @@ def health():
         "service": "remote-sensing-mcp",
         "version": "0.11.1",
         "vercel": bool(os.getenv("VERCEL")),
+        "ee_configured": bool(
+            os.getenv("EE_SERVICE_ACCOUNT_JSON") or os.getenv("EE_SERVICE_ACCOUNT_JSON_BASE64")
+        ),
         "vercel_direct_ee_configured": bool(
             os.getenv("EE_SERVICE_ACCOUNT_JSON") or os.getenv("EE_SERVICE_ACCOUNT_JSON_BASE64")
         ),
