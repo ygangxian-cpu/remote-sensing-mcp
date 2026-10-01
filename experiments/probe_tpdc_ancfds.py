@@ -81,3 +81,42 @@ result["candidates"] = clean[:1000]
 print("\n=== CANDIDATES ===")
 for row in result["candidates"][:300]:
     print(row["value"])
+
+
+TARGETS = [
+    "/file/getRootFileDataList?metadataId=",
+    "/file/downloadFile?fileId=",
+    "/file/batchDownloadFile?metadataId=",
+    "/metadataView/downloadNew",
+    "/control/dataFileDownload?metadataId=",
+    "$operationAxios",
+    "$enclosureAxios",
+    "window.proConfig",
+    "baseURL",
+]
+
+contexts = []
+for i, src in enumerate(scripts):
+    try:
+        js = fetch(src)
+        if js.status_code != 200:
+            continue
+        text = js.text
+        for target in TARGETS:
+            start = 0
+            hits = 0
+            while hits < 8:
+                pos = text.find(target, start)
+                if pos < 0:
+                    break
+                snippet = text[max(0, pos - 900): pos + 1400]
+                snippet = re.sub(r"\\s+", " ", snippet)
+                contexts.append({"script": src, "target": target, "snippet": snippet})
+                print(f"CONTEXT {target}: {snippet}")
+                start = pos + len(target)
+                hits += 1
+    except Exception as exc:
+        print("CONTEXT_ERROR", src, repr(exc))
+
+result["contexts"] = contexts[:300]
+(OUT / "probe.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
