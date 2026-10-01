@@ -123,6 +123,9 @@ A temporary pilot executed here may leave its large artifacts in Actions, but on
 - MODIS time matching should use the product view-time bands and per-pixel longitude conversion rather than fixed nominal overpass time.
 - MODIS LST QC used by current experiments: bits 0-1 <= 1, bits 2-3 == 0, bits 6-7 <= 2.
 - Landsat remains an independent high-resolution validation source in the formal paper workflow; do not silently use Landsat LST as a training target for a formal method.
+- Landsat persistent cache is validation-oriented: v3 stores only LST_C / ST_QA_K / QA_PIXEL / QA_RADSAT. Do not re-add SR_B2..SR_B7 to the same persistent GeoTIFF; use the scaling-factors pipeline for SR-derived predictors so Git objects stay below the 100 MiB limit.
+- `gee_auth_status` describes Vercel-direct Earth Engine access only. MODIS/Landsat/ERA5 GitHub Actions workers authenticate separately; never block worker submission solely because `gee_auth_status.ok == false`.
+- If a GitHub Actions workflow produced a non-expired result Artifact, callers should be allowed to retrieve it even when a best-effort repository-cache commit failed. Preserve the workflow warning/provenance instead of discarding usable data.
 - Preserve source/product identifiers and relevant processing metadata whenever producing experiment snapshots.
 
 ## Working Rules for Agents
