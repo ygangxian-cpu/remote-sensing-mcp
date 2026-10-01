@@ -120,3 +120,34 @@ for i, src in enumerate(scripts):
 
 result["contexts"] = contexts[:300]
 (OUT / "probe.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+print("\n=== LIVE API PROBES ===")
+api_probes = [
+    ("root_double", f"https://data.tpdc.ac.cn/file/file/getRootFileDataList?metadataId={DATASET_ID}"),
+    ("root_single", f"https://data.tpdc.ac.cn/file/getRootFileDataList?metadataId={DATASET_ID}"),
+    ("document_double", f"https://data.tpdc.ac.cn/file/file/getDocumentList?metadataId={DATASET_ID}"),
+    ("document_single", f"https://data.tpdc.ac.cn/file/getDocumentList?metadataId={DATASET_ID}"),
+]
+result["api_probes"] = []
+for name, url in api_probes:
+    try:
+        rr = session.get(url, timeout=45, allow_redirects=False)
+        body = rr.text[:5000] if "text" in rr.headers.get("content-type", "").lower() or "json" in rr.headers.get("content-type", "").lower() else repr(rr.content[:1000])
+        rec = {
+            "name": name,
+            "url": url,
+            "status": rr.status_code,
+            "content_type": rr.headers.get("content-type"),
+            "location": rr.headers.get("location"),
+            "www_authenticate": rr.headers.get("www-authenticate"),
+            "body_preview": body,
+        }
+        result["api_probes"].append(rec)
+        print(json.dumps(rec, ensure_ascii=False))
+    except Exception as exc:
+        rec = {"name": name, "url": url, "error": repr(exc)}
+        result["api_probes"].append(rec)
+        print(json.dumps(rec, ensure_ascii=False))
+
+(OUT / "probe.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
