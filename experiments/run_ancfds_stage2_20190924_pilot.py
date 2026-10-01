@@ -398,6 +398,41 @@ def build_surface_anomaly(features, y4):
     return surface_anomaly.astype("float32"), raw100, importance
 
 
+def apply_native_stage2(parent1, features, feature_names, include_smooth=True):
+    """Train the 1 km -> 100 m RF on ANCFDS itself, then conserve each 1 km parent."""
+    X1 = matrix(features["1km"], feature_names)
+    X100 = matrix(features["100m"], feature_names)
+    y = parent1.reshape(-1)
+    valid = np.isfinite(y) & np.isfinite(X1).all(axis=1)
+    rf = RandomForestRegressor(**RF_PARAMS)
+    rf.fit(X1[valid], y[valid])
+    raw100 = rf.predict(X100).reshape(
+        (PROFILES["100m"]["height"], PROFILES["100m"]["width"])
+    ).astype("float32")
+
+    shape1 = (PROFILES["1km"]["height"], PROFILES["1km"]["width"])
+    shape100 = (PROFILES["100m"]["height"], PROFILES["100m"]["width"])
+    raw_parent = parent_mean_10x(raw100, shape1)
+    local_anomaly = raw100 - expand_parent_10x(raw_parent, shape100)
+
+    pred100 = expand_parent_10x(parent1, shape100) + local_anomaly
+    if include_smooth:
+        smooth = reproject_array(
+            parent1, PROFILES["1km"], PROFILES["100m"], Resampling.bilinear
+        )
+        smooth_parent = parent_mean_10x(smooth, shape1)
+        pred100 += smooth - expand_parent_10x(smooth_parent, shape100)
+
+    final_parent = parent_mean_10x(pred100, shape1)
+    pred100 += expand_parent_10x(parent1 - final_parent, shape100)
+
+    importance = pd.DataFrame({
+        "feature": feature_names,
+        "importance": rf.feature_importances_,
+    }).sort_values("importance", ascending=False)
+    return pred100.astype("float32"), importance
+
+
 def parent_only_from_1km(parent1):
     shape1 = (PROFILES["1km"]["height"], PROFILES["1km"]["width"])
     shape100 = (PROFILES["100m"]["height"], PROFILES["100m"]["width"])
@@ -678,6 +713,64 @@ def plot_harmonized_spatial(ref100, preds):
     plt.close(fig)
 
 
+def plot_native_stage2_comparison(metrics_df):
+    order = ["T_DIR", "T_NADIR", "T_HEMI"]
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5), constrained_layout=True)
+    for ax, name in zip(axes, order):
+        methods = [
+            (f"{name}_parent_only_100m", "Parent-only"),
+            (f"{name}_stage2_100m", "Frozen ELITE Stage2"),
+            (f"{name}_NATIVE_stage2_100m", "Native RF"),
+            (f"{name}_NATIVE_NOXY_stage2_100m", "Native RF no-XY"),
+        ]
+        vals = [
+            float(metrics_df.loc[metrics_df["method"] == key, "r2"].iloc[0])
+            for key, _ in methods
+        ]
+        labels = [label for _, label in methods]
+        x = np.arange(len(labels))
+        ax.bar(x, vals)
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels, rotation=20, ha="right")
+        ax.set_title(name)
+        ax.set_ylabel("100 m R²")
+        ax.set_ylim(min(0, min(vals) - 0.05), min(1.0, max(vals) + 0.12))
+        for xpos, v in zip(x, vals):
+            ax.text(xpos, v + 0.01, f"{v:.3f}", ha="center", fontsize=9)
+    fig.suptitle("ANCFDS-native 1 km → 100 m retraining vs frozen Stage2")
+    fig.savefig(OUT / "08_native_stage2_r2.png", dpi=180)
+    plt.close(fig)
+
+
+def plot_best_native_spatial(ref100, native_preds, metrics_df):
+    candidates = []
+    for key, arr in native_preds.items():
+        method = f"{key}_100m"
+        row = metrics_df.loc[metrics_df["method"] == method]
+        if len(row):
+            candidates.append((float(row["r2"].iloc[0]), key, arr))
+    if not candidates:
+        return
+    candidates.sort(reverse=True, key=lambda x: x[0])
+    r2, key, pred = candidates[0]
+    m = basic_metrics(ref100, pred)
+    valid_ref = ref100[np.isfinite(ref100)]
+    lo, hi = np.nanpercentile(valid_ref, [2, 98])
+    fig, axes = plt.subplots(1, 3, figsize=(14, 4.8), constrained_layout=True)
+    axes[0].imshow(ref100, vmin=lo, vmax=hi)
+    axes[0].set_title("Landsat reference")
+    axes[0].axis("off")
+    axes[1].imshow(pred, vmin=lo, vmax=hi)
+    axes[1].set_title(f"{key}\nR²={m['r2']:.3f}, RMSE={m['rmse']:.2f}°C")
+    axes[1].axis("off")
+    axes[2].imshow(pred - ref100, vmin=-8, vmax=8)
+    axes[2].set_title("Error")
+    axes[2].axis("off")
+    fig.suptitle("Best ANCFDS-native Stage2 candidate")
+    fig.savefig(OUT / "09_best_native_spatial.png", dpi=180)
+    plt.close(fig)
+
+
 def landcover_metrics(ref100, preds, landcover100):
     rows = []
     classes = sorted(int(x) for x in np.unique(landcover100[np.isfinite(landcover100)]))
@@ -794,6 +887,46 @@ def main():
             pred, PROFILES["100m"], f"{name}_HARM_STAGE2_C"
         )
 
+    native_preds = {}
+    native_importance_rows = []
+    no_xy = [n for n in STATIC_FEATURES if n not in {"lat_m", "lon_m"}]
+    for name, parent in parents.items():
+        for variant, feature_names in [
+            ("NATIVE", STATIC_FEATURES),
+            ("NATIVE_NOXY", no_xy),
+        ]:
+            pred, imp = apply_native_stage2(
+                parent, features, feature_names, include_smooth=True
+            )
+            key = f"{name}_{variant}_stage2"
+            native_preds[key] = pred
+            m = basic_metrics(ref100, pred)
+            rows.append({
+                "date": DATE,
+                "hour_utc": HOUR,
+                "method": f"{key}_100m",
+                "resolution": "100m",
+                **m,
+                **subpixel_metrics(ref100, pred),
+            })
+            conservation1 = basic_metrics(parent, parent_mean_10x(pred, parent.shape))
+            rows[-1]["conservation_1km_rmse"] = conservation1["rmse"]
+            rows[-1]["conservation_1km_bias"] = conservation1["bias"]
+            imp = imp.copy()
+            imp.insert(0, "variant", variant)
+            imp.insert(0, "band", name)
+            native_importance_rows.append(imp)
+            write_tif(
+                OUT / f"{name.lower()}_{variant.lower()}_stage2_100m.tif",
+                pred,
+                PROFILES["100m"],
+                f"{name}_{variant}_C",
+            )
+
+    pd.concat(native_importance_rows, ignore_index=True).to_csv(
+        OUT / "native_stage2_feature_importance.csv", index=False
+    )
+
     metrics = pd.DataFrame(rows)
     metrics.to_csv(OUT / "metrics.csv", index=False)
 
@@ -810,6 +943,8 @@ def main():
     plot_feature_importance(importance)
     plot_harmonized_comparison(metrics)
     plot_harmonized_spatial(ref100, harmonized_preds)
+    plot_native_stage2_comparison(metrics)
+    plot_best_native_spatial(ref100, native_preds, metrics)
 
     raw_1 = metrics[
         metrics["method"].isin([f"{n}_1km_parent" for n in parents])
@@ -825,6 +960,11 @@ def main():
     ].sort_values("r2", ascending=False).iloc[0]
     best_1_row = harm_1
     best_100_row = harm_100
+    native_rows = metrics[
+        metrics["method"].str.contains("_NATIVE") &
+        metrics["method"].str.endswith("_100m")
+    ].sort_values("r2", ascending=False)
+    best_native = native_rows.iloc[0]
 
     summary = {
         "experiment": "ANCFDS 1km replacement -> frozen Stage2 -> 100m",
@@ -866,6 +1006,16 @@ def main():
             "mae": float(harm_100["mae"]),
             "bias": float(harm_100["bias"]),
         },
+        "best_native_ancfds_100m": {
+            "method": str(best_native["method"]),
+            "r2": float(best_native["r2"]),
+            "rmse": float(best_native["rmse"]),
+            "mae": float(best_native["mae"]),
+            "bias": float(best_native["bias"]),
+            "delta_r2_vs_prior_ilc_100m": float(
+                best_native["r2"] - PRIOR_R2["ILC-v1_100m"]
+            ),
+        },
         "delta_vs_prior_ilc_r2": {
             "1km": float(best_1_row["r2"] - PRIOR_R2["ILC-v1_1km"]),
             "100m": float(best_100_row["r2"] - PRIOR_R2["ILC-v1_100m"]),
@@ -891,6 +1041,7 @@ def main():
             "T_DIR, T_NADIR and T_HEMI are all tested rather than choosing a band in advance.",
             "Raw-direct and ILC-like harmonized variants are both evaluated.",
             "Harmonized means: preserve ANCFDS within-4km structure but force the 4km parent mean back to ELITE, matching the zero-mean ILC philosophy.",
+            "A native Stage2 ablation is also trained directly at 1 km on each ANCFDS band, with both full static features and a no-lat/lon variant.",
             "The comparison chart includes the previously reported 2019-09-24 P0/ILC-v1 R2 values.",
         ],
     }
