@@ -9,7 +9,7 @@ import numpy as np
 import rasterio
 
 DATE = "2019-09-24"
-REGION_NAME = "zhangye-formal-buffered"
+REGION_NAME = "zhangye"
 # Formal master footprint is [99.8652818242, 38.6791139735, 100.4761362174, 39.3977662008].
 # Keep >= one ERA5-Land native 0.1-degree cell of buffer on every side.
 REQUEST_BBOX = [99.70, 38.50, 100.70, 39.60]
@@ -85,7 +85,7 @@ def main() -> None:
                 raise RuntimeError(f"ERA5 grid changes at hour {item['hour_utc']}: {key}")
 
     payload = {
-        "schema": "era5-land-formal-master-buffered-24h-v2",
+        "schema": "era5-land-formal-roi-24h-v2",
         "date": DATE,
         "region_id": rid,
         "region_name": REGION_NAME,
