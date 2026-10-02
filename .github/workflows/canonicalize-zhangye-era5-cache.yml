@@ -1,0 +1,102 @@
+name: Canonicalize Zhangye ERA5 Cache
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/canonicalize-zhangye-era5-cache.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  canonicalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 收口唯一张掖ERA5缓存
+        run: |
+          python - <<'PY'
+          import base64, gzip, json, shutil
+          from pathlib import Path
+
+          old = Path("data/era5_land/v1/zhangye-c6c86510ae")
+          temp = Path("data/era5_land/v1/zhangye-formal-buffered-4ba50c0b09")
+          canonical = Path("data/era5_land/v1/zhangye-4ba50c0b09")
+          index_path = Path("data/metadata/era5-land-index.json")
+          temp_snapshot = Path("data/metadata/era5-formal-master-buffered-20190924-24h.json.gz.b64")
+          canonical_snapshot = Path("data/metadata/era5-formal-roi-20190924-24h.json.gz.b64")
+
+          if not temp.exists() and not canonical.exists():
+              raise SystemExit("missing buffered ERA5 cache to canonicalize")
+
+          if canonical.exists():
+              shutil.rmtree(canonical)
+          if temp.exists():
+              temp.rename(canonical)
+          if old.exists():
+              shutil.rmtree(old)
+
+          index = json.loads(index_path.read_text(encoding="utf-8"))
+          regions = index.setdefault("regions", {})
+          regions.pop("zhangye-c6c86510ae", None)
+          regions.pop("zhangye-formal-buffered-4ba50c0b09", None)
+
+          hours = {}
+          day = canonical / "2019/09/24"
+          for h in range(24):
+              p = day / f"ERA5LAND_20190924_{h:02d}00_UTC.tif"
+              if not p.exists():
+                  raise SystemExit(f"missing {p}")
+              hours[f"2019-09-24T{h:02d}:00:00"] = str(p)
+
+          regions["zhangye-4ba50c0b09"] = {
+              "region_name": "zhangye",
+              "bbox": [99.7, 38.5, 100.7, 39.6],
+              "hours": hours,
+          }
+          index_path.write_text(
+              json.dumps(index, ensure_ascii=False, indent=2, sort_keys=True),
+              encoding="utf-8",
+          )
+
+          if temp_snapshot.exists():
+              encoded = "".join(temp_snapshot.read_text(encoding="ascii").split())
+              payload = json.loads(gzip.decompress(base64.b64decode(encoded)))
+              payload["schema"] = "era5-land-formal-roi-24h-v2"
+              payload["region_id"] = "zhangye-4ba50c0b09"
+              payload["region_name"] = "zhangye"
+              for rec in payload["hours"]:
+                  h = int(rec["hour_utc"])
+                  rec["source_path"] = str(day / f"ERA5LAND_20190924_{h:02d}00_UTC.tif")
+              raw = json.dumps(payload, ensure_ascii=False, allow_nan=True, separators=(",", ":")).encode("utf-8")
+              canonical_snapshot.write_text(
+                  base64.b64encode(gzip.compress(raw, compresslevel=9)).decode("ascii") + "\n",
+                  encoding="ascii",
+              )
+              temp_snapshot.unlink()
+
+          print("canonical cache:", canonical)
+          print("canonical snapshot:", canonical_snapshot)
+          PY
+
+      - name: 提交收口结果
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A data/era5_land/v1 data/metadata/era5-land-index.json data/metadata/era5-formal-roi-20190924-24h.json.gz.b64 data/metadata/era5-formal-master-buffered-20190924-24h.json.gz.b64 || true
+          if git diff --cached --quiet; then
+            echo "No cache changes"
+            exit 0
+          fi
+          git commit -m "data: replace legacy Zhangye ERA5 cache with unified master cache [skip vercel]"
+          git pull --rebase origin main
+          git push origin HEAD:main
