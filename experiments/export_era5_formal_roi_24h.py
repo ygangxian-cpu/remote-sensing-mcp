@@ -9,7 +9,7 @@ import numpy as np
 import rasterio
 
 DATE = "2019-09-24"
-RID = "zhangye-c6c86510ae"
+RID = "zhangye-formal-buffered-4ba50c0b09"
 ROOT = Path("data") / "era5_land" / "v1" / RID / "2019" / "09" / "24"
 OUT = Path("data") / "metadata" / "era5-formal-roi-20190924-24h.json.gz.b64"
 
@@ -64,13 +64,14 @@ def main() -> None:
         "schema": "era5-land-formal-roi-24h-v1",
         "date": DATE,
         "region_id": RID,
-        "roi": [99.86, 38.67, 100.5, 39.43],
+        "roi": [99.86528182419725, 38.67911397351706, 100.47613621740223, 39.39776620081703],
+        "source_request_bbox": [99.70, 38.50, 100.70, 39.60],
         "time_standard": "UTC",
         "bands": EXPECTED_BANDS,
         "grid": base,
         "hours": hours,
         "source_note": (
-            "Existing MCP ERA5-Land v1 cache; radiation bands already converted from "
+            "Canonical MCP ERA5-Land cache covering the unified 4 km master footprint with buffer; radiation bands already converted from "
             "hourly J m-2 accumulation to W m-2 by division by 3600."
         ),
     }
