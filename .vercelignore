@@ -1,23 +1,8 @@
-# Large runtime data/cache is produced and consumed by GitHub Actions workers,
-# not by the Vercel MCP gateway.
-data/**
-experiments/**
-.github/**
-output/**
-results/**
+# Vercel hosts only the lightweight MCP gateway.
+# All workers, caches, experiments and remote-sensing binaries run elsewhere.
+/*
 
-# Remote-sensing binary artifacts must never enter the Vercel function bundle.
-*.tif
-*.tiff
-*.hdf
-*.h4
-*.h5
-*.nc
-*.zip
-*.b64
-
-# Python build/runtime noise.
-__pycache__/**
-*.pyc
-.pytest_cache/**
-.venv/**
+# Allow only files required to build and run the Python gateway.
+!app.py
+!pyproject.toml
+!vercel.json
