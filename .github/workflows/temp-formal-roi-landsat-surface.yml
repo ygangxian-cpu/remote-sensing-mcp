@@ -40,7 +40,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install earthengine-api google-auth requests numpy rasterio
+        run: pip install earthengine-api google-auth requests numpy rasterio pillow
 
       - name: Build exact-day formal-master Landsat factors
         run: |
@@ -239,6 +239,39 @@ jobs:
             echo "No RGB display changes"
           else
             git commit -m "data: add formal-master Landsat false-color display raster [skip vercel]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+
+      - name: Build compact JPEG handoff
+        run: |
+          python - <<'PY'
+          import base64
+          from pathlib import Path
+          import numpy as np
+          import rasterio
+          from PIL import Image
+
+          root=Path("data/landsat_rgb/v1/zhangye-formal-master/2019/09/24")
+          tif=root/"LANDSAT8_B5B4B3_FALSE_COLOR_100M_20190924.tif"
+          with rasterio.open(tif) as src:
+              rgb=np.moveaxis(src.read([1,2,3]),0,-1).astype("uint8")
+          jpg=root/"LANDSAT8_B5B4B3_FALSE_COLOR_100M_20190924.jpg"
+          Image.fromarray(rgb,"RGB").save(jpg,quality=94,subsampling=0,optimize=True)
+          b64=jpg.with_suffix(jpg.suffix+".b64")
+          b64.write_text(base64.b64encode(jpg.read_bytes()).decode("ascii"),encoding="ascii")
+          print("jpg_size",jpg.stat().st_size,"jpg_b64_size",b64.stat().st_size)
+          PY
+
+      - name: Commit compact JPEG handoff
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/landsat_rgb/v1/zhangye-formal-master/2019/09/24/LANDSAT8_B5B4B3_FALSE_COLOR_100M_20190924.jpg*
+          if git diff --cached --quiet; then
+            echo "No JPEG changes"
+          else
+            git commit -m "data: add compact formal-master Landsat false-color JPEG [skip vercel]"
             git pull --rebase origin main
             git push origin HEAD:main
           fi
