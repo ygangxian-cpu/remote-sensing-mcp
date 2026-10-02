@@ -1,0 +1,149 @@
+name: Remote Sensing MODIS L2 Swath Worker
+run-name: "MODIS L2 swath ${{ inputs.job_key || 'feature-e2e' }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_key:
+        required: true
+        type: string
+      date:
+        required: true
+        type: string
+      bbox:
+        description: xmin,ymin,xmax,ymax EPSG:4326
+        required: true
+        type: string
+      region_name:
+        required: false
+        default: ""
+        type: string
+      platform:
+        required: false
+        default: "terra"
+        type: choice
+        options: [terra, aqua]
+      target_time_utc:
+        description: HH:MM UTC, e.g. 03:45
+        required: true
+        type: string
+      time_window_minutes:
+        required: false
+        default: "15"
+        type: string
+      output_unit:
+        required: false
+        default: "celsius"
+        type: choice
+        options: [celsius, kelvin]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: modis-l2-swath-cache
+  cancel-in-progress: false
+
+jobs:
+  modis-l2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      LAADS_TOKEN: "${{ secrets.LAADS_TOKEN }}"
+      EARTHDATA_TOKEN: "${{ secrets.EARTHDATA_TOKEN }}"
+      NASA_EARTHDATA_TOKEN: "${{ secrets.NASA_EARTHDATA_TOKEN }}"
+      EDL_TOKEN: "${{ secrets.EDL_TOKEN }}"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install HDF4 and Python dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libhdf4-alt-dev
+          python -m pip install --upgrade pip
+          pip install requests numpy scipy rasterio pyhdf
+
+      - name: Resolve request
+        id: req
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "job_key=${{ inputs.job_key }}" >> "$GITHUB_OUTPUT"
+            echo "date=${{ inputs.date }}" >> "$GITHUB_OUTPUT"
+            echo "bbox=${{ inputs.bbox }}" >> "$GITHUB_OUTPUT"
+            echo "region_name=${{ inputs.region_name }}" >> "$GITHUB_OUTPUT"
+            echo "platform=${{ inputs.platform }}" >> "$GITHUB_OUTPUT"
+            echo "target_time_utc=${{ inputs.target_time_utc }}" >> "$GITHUB_OUTPUT"
+            echo "time_window_minutes=${{ inputs.time_window_minutes }}" >> "$GITHUB_OUTPUT"
+            echo "output_unit=${{ inputs.output_unit }}" >> "$GITHUB_OUTPUT"
+          else
+            # Feature-branch E2E: Wang et al. area a, 2018-08-21, paper MODIS time 03:45 UTC.
+            echo "job_key=mod11-l2-wang-a-20180821-0345" >> "$GITHUB_OUTPUT"
+            echo "date=2018-08-21" >> "$GITHUB_OUTPUT"
+            echo "bbox=115.333333,39.666667,116.333333,40.000000" >> "$GITHUB_OUTPUT"
+            echo "region_name=wang2025-area-a" >> "$GITHUB_OUTPUT"
+            echo "platform=terra" >> "$GITHUB_OUTPUT"
+            echo "target_time_utc=02:45" >> "$GITHUB_OUTPUT"
+            echo "time_window_minutes=40" >> "$GITHUB_OUTPUT"
+            echo "output_unit=celsius" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch exact-time MOD11_L2 / MYD11_L2 swath
+        id: fetch
+        continue-on-error: true
+        run: >-
+          python modis_l2_swath_worker.py
+          --date '${{ steps.req.outputs.date }}'
+          --bbox '${{ steps.req.outputs.bbox }}'
+          --region-name '${{ steps.req.outputs.region_name }}'
+          --platform '${{ steps.req.outputs.platform }}'
+          --target-time-utc '${{ steps.req.outputs.target_time_utc }}'
+          --time-window-minutes '${{ steps.req.outputs.time_window_minutes }}'
+          --output-unit '${{ steps.req.outputs.output_unit }}'
+
+      - name: Print acquisition result
+        if: always()
+        run: |
+          if [ -f output/result.json ]; then
+            cat output/result.json
+          else
+            echo "::error::worker did not produce output/result.json"
+          fi
+
+      - name: Commit new ROI cache
+        if: steps.fetch.outcome == 'success'
+        run: |
+          if [ -n "$(git status --porcelain -- data/modis_l2_swath)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/modis_l2_swath
+            git commit -m "data: cache MODIS L2 swath ${{ steps.req.outputs.region_name }} ${{ steps.req.outputs.date }} [skip vercel]"
+            git pull --rebase origin "$GITHUB_REF_NAME"
+            git push origin HEAD:"$GITHUB_REF_NAME"
+          fi
+
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "${{ steps.req.outputs.job_key }}"
+          path: |
+            output/modis_l2_swath/**/*.tif
+            output/modis_l2_swath/**/*.hdf
+            output/result.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Enforce acquisition success
+        if: steps.fetch.outcome != 'success'
+        run: |
+          echo "::error::MODIS L2 swath acquisition did not complete successfully; inspect result.json."
+          exit 1
