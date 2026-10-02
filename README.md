@@ -191,6 +191,84 @@ MCP tools:
 - `submit_modis_lst_job`
 - `modis_job_status`
 
+
+## MODIS Terra/Aqua 5-minute L2 swath LST
+
+Exact-time MODIS swath acquisition is available separately from the daily MOD11A1/MYD11A1 grid products.
+
+Products:
+
+- Terra: `MOD11_L2.061`
+- Aqua: `MYD11_L2.061`
+- Source: NASA LAADS DAAC
+- Native resolution: 1 km
+- Temporal granularity: 5-minute swath granules
+
+This capability is intended for experiments that must preserve the original MODIS overpass granule rather than use the daily Level-3 grid. It is especially useful for Landsat/MODIS exact-time harmonization.
+
+Source SDS preserved/decoded:
+
+- `LST`
+- `QC`
+- `Error_LST`
+- `Emis_31`
+- `Emis_32`
+- `View_angle`
+- `View_time`
+- `Latitude`
+- `Longitude`
+
+The worker honors the MOD11_L2 geolocation contract (`offset=2`, `increment=5`) and produces a regular WGS84 ROI GeoTIFF containing:
+
+- `LST_C` or `LST_K`
+- `QC`
+- `ERROR_LST_K`
+- `EMIS_31`
+- `EMIS_32`
+- `VIEW_ZENITH_DEG`
+- `VIEW_TIME_LOCAL_H`
+- `VIEW_TIME_UTC_H`
+- `SOURCE_LAT`
+- `SOURCE_LON`
+
+Repository cache:
+
+```text
+data/modis_l2_swath/v1/<region>-<bbox_hash>/YYYY/MM/DD/
+└── MOD11_L2_YYYYMMDD_HHMM_UTC_C.tif
+```
+
+Raw HDF files are not persisted in Git. They are retained only in the short-lived Actions Artifact for provenance.
+
+Historical LAADS downloads require a NASA Earthdata/LAADS bearer token. Configure one of these repository secrets (preferred first):
+
+- `LAADS_TOKEN`
+- `EARTHDATA_TOKEN`
+- `NASA_EARTHDATA_TOKEN`
+- `EDL_TOKEN`
+
+MCP tools:
+
+- `modis_l2_swath_schema`
+- `submit_modis_l2_swath_job`
+- `modis_l2_swath_job_status`
+- `get_job_result`
+
+Feature E2E audit for Wang et al. study area a (115°20′–116°20′E, 39°40′–40°00′N) found that the paper-reported 03:45 UTC file exists in the archive but does **not** cover the study area. Its swath is over North America.
+
+The actual Terra MOD11_L2 swath covering area a on 2018-08-21 is:
+
+```text
+granule: MOD11_L2.A2018233.0225.061.2021346192443.hdf
+granule start: 02:25 UTC
+ROI mean per-pixel View_time converted to UTC: ~02:28:42
+Landsat 8 acquisition: 02:59:10.732 UTC
+```
+
+Thus the source swath is about 30.5 minutes before Landsat over the ROI. The paper's 03:45 UTC MODIS time is not consistent with the geolocation of the archived MOD11_L2 granules for this study area. The worker always verifies swath geolocation against the requested ROI and does not accept a filename time alone as proof of coverage.
+
+The discovery/listing step is public. The HDF transfer itself remains gated by the Earthdata/LAADS token.
+
 ## Landsat 8/9 Collection 2 Level 2
 
 Datasets:
@@ -274,6 +352,10 @@ Remote workflow dispatch:
 
 - `GITHUB_WORKFLOW_TOKEN`
 - `REMOTE_MCP_TOKEN`
+
+NASA LAADS exact-time MODIS L2 worker (GitHub Actions):
+
+- repository secret `LAADS_TOKEN` (preferred; Earthdata/LAADS bearer token)
 - `GITHUB_WORKFLOW_REPOSITORY=ygangxian-cpu/remote-sensing-mcp`
 - `GITHUB_WORKFLOW_ID=remote-sensing-elite.yml`
 - optional `GITHUB_TPDC_ANCFDS_WORKFLOW_ID=remote-sensing-tpdc-ancfds.yml`
