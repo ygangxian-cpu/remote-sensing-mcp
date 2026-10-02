@@ -33,6 +33,8 @@ ERA5_LAND_BANDS = {
     "SWDOWN_WM2": {"source": "surface_solar_radiation_downwards_hourly", "unit": "W m-2"},
     "GLW_WM2": {"source": "surface_thermal_radiation_downwards_hourly", "unit": "W m-2"},
 }
+MODIS_L2_SWATH_PRODUCTS = {"terra": "MOD11_L2", "aqua": "MYD11_L2"}
+
 DATASETS = {
     "era5_land_hourly": "ECMWF/ERA5_LAND/HOURLY",
     "modis_terra_lst": "MODIS/061/MOD11A1",
@@ -213,6 +215,19 @@ def _github_era5_config() -> tuple[str, str, str, str]:
 def _github_modis_config() -> tuple[str, str, str, str]:
     repo = os.getenv("GITHUB_WORKFLOW_REPOSITORY", "ygangxian-cpu/remote-sensing-mcp")
     workflow = os.getenv("GITHUB_MODIS_WORKFLOW_ID", "remote-sensing-modis.yml")
+    ref = os.getenv("GITHUB_WORKFLOW_REF", "main")
+    token = os.getenv("GITHUB_WORKFLOW_TOKEN", "")
+    if not token:
+        raise RuntimeError("GitHub Actions remote dispatch is not configured.")
+    return repo, workflow, ref, token
+
+
+def _github_modis_l2_swath_config() -> tuple[str, str, str, str]:
+    repo = os.getenv("GITHUB_WORKFLOW_REPOSITORY", "ygangxian-cpu/remote-sensing-mcp")
+    workflow = os.getenv(
+        "GITHUB_MODIS_L2_SWATH_WORKFLOW_ID",
+        "remote-sensing-modis-l2-swath.yml",
+    )
     ref = os.getenv("GITHUB_WORKFLOW_REF", "main")
     token = os.getenv("GITHUB_WORKFLOW_TOKEN", "")
     if not token:
@@ -706,6 +721,166 @@ def era5_job_status(job_key: str) -> dict[str, Any]:
                 "updated_at": run.get("updated_at"),
             }
     return {"found": False, "job_key": job_key, "checked_runs": len(runs)}
+
+
+@mcp.tool()
+def modis_l2_swath_schema() -> dict[str, Any]:
+    """Describe exact-time MODIS Terra/Aqua 5-minute L2 swath LST acquisition."""
+    return {
+        "products": MODIS_L2_SWATH_PRODUCTS,
+        "collection": "061",
+        "source": "NASA LAADS DAAC",
+        "source_type": "5-minute Level-2 swath",
+        "native_spatial_resolution": "1 km",
+        "time_standard": {
+            "granule_filename": "UTC start time encoded as HHMM",
+            "View_time": "per-pixel local solar time, DN*0.1 hour",
+            "derived_output": "VIEW_TIME_UTC_H = local solar time - longitude/15, modulo 24",
+        },
+        "source_sds": [
+            "LST",
+            "QC",
+            "Error_LST",
+            "Emis_31",
+            "Emis_32",
+            "View_angle",
+            "View_time",
+            "Latitude",
+            "Longitude",
+        ],
+        "output_bands": [
+            "LST_C or LST_K",
+            "QC",
+            "ERROR_LST_K",
+            "EMIS_31",
+            "EMIS_32",
+            "VIEW_ZENITH_DEG",
+            "VIEW_TIME_LOCAL_H",
+            "VIEW_TIME_UTC_H",
+            "SOURCE_LAT",
+            "SOURCE_LON",
+        ],
+        "conversions": {
+            "LST": "DN*0.02 K; Celsius subtracts 273.15",
+            "Error_LST": "DN*0.04 K",
+            "Emis_31_32": "DN*0.002+0.49",
+            "View_angle": "DN*0.5 degree",
+            "View_time": "DN*0.1 local-solar hour",
+        },
+        "geolocation": (
+            "Latitude/Longitude are stored every 5 scan lines/samples. "
+            "The worker honors MOD11_L2 offset=2, increment=5 and then "
+            "nearest-regrids the swath to the requested regular WGS84 ROI grid."
+        ),
+        "recommended_strict_qc": "bits 0-1 <= 1; bits 2-3 == 0; bits 6-7 <= 2",
+        "authentication": (
+            "Historical LAADS HDF download requires a NASA Earthdata/LAADS bearer token "
+            "stored in the GitHub Actions repository secret LAADS_TOKEN "
+            "(EARTHDATA_TOKEN/NASA_EARTHDATA_TOKEN/EDL_TOKEN are accepted fallbacks)."
+        ),
+        "cache_version": "v1",
+        "cache": (
+            "data/modis_l2_swath/v1/<region>-<bbox_hash>/YYYY/MM/DD/"
+            "<MOD11_L2|MYD11_L2>_YYYYMMDD_HHMM_UTC_<C|K>.tif"
+        ),
+        "raw_hdf_policy": "temporary for cache; included in short-lived job Artifact for provenance",
+    }
+
+
+@mcp.tool()
+def submit_modis_l2_swath_job(
+    date: str,
+    bbox: list[float],
+    target_time_utc: str,
+    region_name: str = "",
+    platform: str = "terra",
+    time_window_minutes: int = 15,
+    output_unit: str = "celsius",
+) -> dict[str, Any]:
+    """Submit exact-time MOD11_L2/MYD11_L2 swath acquisition from NASA LAADS."""
+    if len(bbox) != 4:
+        raise ValueError("bbox must be [xmin,ymin,xmax,ymax]")
+    platform = platform.strip().lower()
+    if platform not in MODIS_L2_SWATH_PRODUCTS:
+        raise ValueError("platform must be terra or aqua")
+    if output_unit not in {"celsius", "kelvin"}:
+        raise ValueError("output_unit must be celsius or kelvin")
+    if not 0 <= int(time_window_minutes) <= 180:
+        raise ValueError("time_window_minutes must be between 0 and 180")
+    datetime.fromisoformat(date[:10])
+    try:
+        hh, mm = [int(x) for x in target_time_utc.split(":")]
+    except Exception as exc:
+        raise ValueError("target_time_utc must be HH:MM") from exc
+    if not (0 <= hh <= 23 and 0 <= mm <= 59):
+        raise ValueError("target_time_utc must be HH:MM")
+
+    repo, workflow, ref, token = _github_modis_l2_swath_config()
+    job_key = f"modis-l2-{int(time.time())}-{uuid.uuid4().hex[:8]}"
+    response = requests.post(
+        f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}/dispatches",
+        timeout=30,
+        headers=_github_headers(token),
+        json={
+            "ref": ref,
+            "inputs": {
+                "job_key": job_key,
+                "date": date[:10],
+                "bbox": ",".join(str(float(x)) for x in bbox),
+                "region_name": region_name,
+                "platform": platform,
+                "target_time_utc": f"{hh:02d}:{mm:02d}",
+                "time_window_minutes": str(int(time_window_minutes)),
+                "output_unit": output_unit,
+            },
+        },
+    )
+    if response.status_code != 204:
+        raise RuntimeError(
+            f"GitHub MODIS L2 swath dispatch failed: {response.status_code} {response.text[:300]}"
+        )
+    return {
+        "submitted": True,
+        "job_key": job_key,
+        "repository": repo,
+        "workflow": workflow,
+        "product": MODIS_L2_SWATH_PRODUCTS[platform],
+        "platform": platform,
+        "date": date[:10],
+        "target_time_utc": f"{hh:02d}:{mm:02d}",
+        "time_window_minutes": int(time_window_minutes),
+        "region_name": region_name or None,
+        "status_tool": "modis_l2_swath_job_status",
+        "result_tool": "get_job_result",
+        "source": "NASA LAADS DAAC",
+    }
+
+
+@mcp.tool()
+def modis_l2_swath_job_status(job_key: str) -> dict[str, Any]:
+    """Look up a submitted MODIS L2 swath GitHub Actions job."""
+    repo, workflow, _, token = _github_modis_l2_swath_config()
+    response = requests.get(
+        f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}/runs",
+        params={"event": "workflow_dispatch", "per_page": 50},
+        timeout=30,
+        headers=_github_headers(token),
+    )
+    response.raise_for_status()
+    for run in response.json().get("workflow_runs", []):
+        title = str(run.get("display_title") or run.get("name") or "")
+        if job_key in title:
+            return {
+                "found": True,
+                "job_key": job_key,
+                "run_id": run.get("id"),
+                "status": run.get("status"),
+                "conclusion": run.get("conclusion"),
+                "html_url": run.get("html_url"),
+                "created_at": run.get("created_at"),
+                "updated_at": run.get("updated_at"),
+            }
+    return {"found": False, "job_key": job_key}
 
 
 @mcp.tool()
