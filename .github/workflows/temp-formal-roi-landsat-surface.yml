@@ -1,0 +1,64 @@
+name: TEMP Formal ROI Landsat Surface Factors
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/temp-formal-roi-landsat-surface.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      EE_PROJECT: "${{ vars.EE_PROJECT || 'ee-ygangxian' }}"
+      EE_USER_CREDENTIALS_JSON_BASE64: "${{ secrets.EE_USER_CREDENTIALS_JSON_BASE64 }}"
+      EE_SERVICE_ACCOUNT_JSON_BASE64: "${{ secrets.EE_SERVICE_ACCOUNT_JSON_BASE64 }}"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Restore Earth Engine credentials
+        shell: bash
+        run: |
+          if [ -n "$EE_USER_CREDENTIALS_JSON_BASE64" ]; then
+            mkdir -p "$HOME/.config/earthengine"
+            printf '%s' "$EE_USER_CREDENTIALS_JSON_BASE64" | base64 --decode > "$HOME/.config/earthengine/credentials"
+            chmod 600 "$HOME/.config/earthengine/credentials"
+          elif [ -z "$EE_SERVICE_ACCOUNT_JSON_BASE64" ]; then
+            echo "::error::Missing Earth Engine credentials"
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install earthengine-api google-auth requests numpy rasterio
+
+      - name: Build exact-day formal-master Landsat factors
+        run: |
+          python scaling_factors_worker.py \
+            --start-date 2019-09-24 \
+            --end-date 2019-09-25 \
+            --bbox '99.8652818242,38.6791139735,100.4761362174,39.3977662008' \
+            --region-name 'zhangye-formal-master'
+
+      - name: Commit cache
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/scaling_factors data/metadata/scaling-factors-index.json
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "data: cache formal-master Landsat surface factors 20190924 [skip vercel]"
+          git pull --rebase origin main
+          git push origin HEAD:main
