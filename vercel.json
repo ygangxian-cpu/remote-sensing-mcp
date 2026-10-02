@@ -1,4 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "app.py": {
+      "excludeFiles": "{data/**,experiments/**,.github/**,output/**,results/**,**/*.tif,**/*.tiff,**/*.hdf,**/*.h4,**/*.h5,**/*.nc,**/*.zip,**/*.b64,__pycache__/**,**/*.pyc}"
+    }
+  },
   "ignoreCommand": "if printf '%s' \"${VERCEL_GIT_COMMIT_MESSAGE:-}\" | grep -q '\\[skip vercel\\]'; then exit 0; fi; if [ -n \"${VERCEL_GIT_PREVIOUS_SHA:-}\" ] && git cat-file -e \"${VERCEL_GIT_PREVIOUS_SHA}^{commit}\" 2>/dev/null; then git diff --quiet \"${VERCEL_GIT_PREVIOUS_SHA}\" HEAD -- app.py pyproject.toml vercel.json .vercelignore && exit 0 || exit 1; fi; exit 1"
 }
