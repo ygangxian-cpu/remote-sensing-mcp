@@ -1,0 +1,102 @@
+name: Build Formal Master Buffered ERA5 24h
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/build-era5-formal-master-buffered-v1.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: era5-formal-master-buffered-v1
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      EE_PROJECT: "ee-ygangxian"
+      EE_USER_CREDENTIALS_JSON_BASE64: "${{ secrets.EE_USER_CREDENTIALS_JSON_BASE64 }}"
+      EE_SERVICE_ACCOUNT_JSON_BASE64: "${{ secrets.EE_SERVICE_ACCOUNT_JSON_BASE64 }}"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Restore Earth Engine credentials
+        shell: bash
+        run: |
+          if [ -n "$EE_USER_CREDENTIALS_JSON_BASE64" ]; then
+            mkdir -p "$HOME/.config/earthengine"
+            printf '%s' "$EE_USER_CREDENTIALS_JSON_BASE64" | base64 --decode > "$HOME/.config/earthengine/credentials"
+            chmod 600 "$HOME/.config/earthengine/credentials"
+          elif [ -n "$EE_SERVICE_ACCOUNT_JSON_BASE64" ]; then
+            echo "Using service-account credentials."
+          else
+            echo "::error::Missing Earth Engine credentials"
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install earthengine-api google-auth requests numpy rasterio
+
+      - name: Download buffered ERA5-Land 24h cache
+        run: |
+          python era5_worker.py             --start-date '2019-09-24T00:00:00'             --end-date '2019-09-25T00:00:00'             --bbox '99.70,38.50,100.70,39.60'             --region-name 'zhangye-formal-buffered'
+
+      - name: Export buffered formal snapshot
+        run: |
+          python experiments/export_era5_formal_master_buffered_24h.py
+
+      - name: Verify snapshot covers formal master
+        run: |
+          python - <<'PY'
+          import base64,gzip,json
+          from pathlib import Path
+          p=Path("data/metadata/era5-formal-master-buffered-20190924-24h.json.gz.b64")
+          x=json.loads(gzip.decompress(base64.b64decode("".join(p.read_text().split()))))
+          b=x["grid"]["bounds"]
+          f=x["formal_master_bbox"]
+          ok=b[0] <= f[0] and b[1] <= f[1] and b[2] >= f[2] and b[3] >= f[3]
+          print("grid_bounds=",b)
+          print("formal_master=",f)
+          print("contains_formal_master=",ok)
+          if not ok:
+              raise SystemExit("Buffered ERA5 snapshot still does not contain formal master footprint")
+          for rec in x["hours"]:
+              for name in ("SWDOWN_WM2","GLW_WM2"):
+                  import numpy as np
+                  a=np.asarray(rec["bands"][name],dtype=float)
+                  if not np.isfinite(a).all():
+                      raise SystemExit(f"{rec['hour_utc']} {name} contains invalid native cells")
+          print("24h native radiation fields valid")
+          PY
+
+      - name: Commit new buffered cache and snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/era5_land data/metadata/era5-land-index.json data/metadata/era5-formal-master-buffered-20190924-24h.json.gz.b64
+          if git diff --cached --quiet; then
+            echo "No data changes"
+            exit 0
+          fi
+          git commit -m "data: cache buffered ERA5-Land for unified 4km master [skip vercel]"
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Upload snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: era5-formal-master-buffered-20190924-24h
+          path: data/metadata/era5-formal-master-buffered-20190924-24h.json.gz.b64
+          retention-days: 30
