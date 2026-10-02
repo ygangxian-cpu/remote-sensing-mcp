@@ -67,3 +67,96 @@ jobs:
           git commit -m "data: cache formal-master Landsat surface factors 20190924 [skip vercel]"
           git pull --rebase origin main
           git push origin HEAD:main
+
+      - name: Diagnose and export exact Landsat B3 B4 B5
+        env:
+          BBOX: '99.8652818242,38.6791139735,100.4761362174,39.3977662008'
+        run: |
+          cat > /tmp/export_rgb.py <<'PY'
+          import base64, json, os
+          from pathlib import Path
+          import ee, requests, rasterio, numpy as np
+          from google.oauth2 import service_account
+
+          project=os.getenv("EE_PROJECT","ee-ygangxian")
+          cred=Path.home()/".config/earthengine"/"credentials"
+          if cred.exists():
+              ee.Initialize(project=project)
+          else:
+              raw=base64.b64decode(os.environ["EE_SERVICE_ACCOUNT_JSON_BASE64"]).decode()
+              info=json.loads(raw)
+              credentials=service_account.Credentials.from_service_account_info(
+                  info,
+                  scopes=["https://www.googleapis.com/auth/earthengine",
+                          "https://www.googleapis.com/auth/cloud-platform"])
+              ee.Initialize(credentials, project=project)
+
+          bbox=[float(x) for x in os.environ["BBOX"].split(",")]
+          region=ee.Geometry.Rectangle(bbox,proj="EPSG:4326",geodesic=False)
+          col=(ee.ImageCollection("LANDSAT/LC08/C02/T1_L2")
+               .filterDate("2019-09-24","2019-09-25")
+               .filterBounds(region)
+               .filter(ee.Filter.eq("PROCESSING_LEVEL","L2SP"))
+               .sort("CLOUD_COVER"))
+          print("scene_count",col.size().getInfo())
+          img=ee.Image(col.first())
+          print("product",img.get("LANDSAT_PRODUCT_ID").getInfo(),
+                "cloud",img.get("CLOUD_COVER").getInfo())
+
+          qa=img.select("QA_PIXEL")
+          mask=ee.Image(1)
+          for bit in [0,1,2,3,4,5]:
+              mask=mask.And(qa.bitwiseAnd(1<<bit).eq(0))
+          mask=mask.And(img.select("QA_RADSAT").eq(0))
+
+          outdir=Path("data/landsat_rgb/v1/zhangye-formal-master/2019/09/24")
+          outdir.mkdir(parents=True,exist_ok=True)
+          for band in ["SR_B3","SR_B4","SR_B5"]:
+              image=img.select(band).multiply(0.0000275).add(-0.2).updateMask(mask).rename(band).toFloat()
+              url=image.getDownloadURL({
+                  "name":band,"region":region,"scale":30,"crs":"EPSG:4326","format":"GEO_TIFF"
+              })
+              p=outdir/f"{band}_20190924_30m.tif"
+              with requests.get(url,stream=True,timeout=240) as r:
+                  r.raise_for_status()
+                  with p.open("wb") as fp:
+                      for chunk in r.iter_content(2*1024*1024):
+                          if chunk: fp.write(chunk)
+              with rasterio.open(p) as src:
+                  a=src.read(1,masked=True).astype("float32")
+                  v=a.compressed()
+                  print(band,src.shape,str(src.crs),
+                        "n",v.size,"min",float(v.min()),"max",float(v.max()),
+                        "mean",float(v.mean()),"std",float(v.std()))
+              b64=p.with_suffix(p.suffix+".b64")
+              b64.write_text(base64.b64encode(p.read_bytes()).decode("ascii"),encoding="ascii")
+
+          # Formal WorldCover handoff.
+          wc=Path("data/scaling_factors/v1/zhangye-formal-master-955b44ac26/static/WORLDCOVER_2021_100M.tif")
+          wc.with_suffix(wc.suffix+".b64").write_text(
+              base64.b64encode(wc.read_bytes()).decode("ascii"), encoding="ascii")
+          PY
+          python /tmp/export_rgb.py
+
+      - name: Commit exact RGB and WorldCover handoff
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/landsat_rgb data/scaling_factors/v1/zhangye-formal-master-955b44ac26/static/WORLDCOVER_2021_100M.tif.b64
+          if git diff --cached --quiet; then
+            echo "No exact RGB changes"
+          else
+            git commit -m "data: cache exact formal-master Landsat B3 B4 B5 and WorldCover [skip vercel]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+
+      - name: Upload exact RGB diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: formal-master-landsat-rgb-20190924
+          path: |
+            data/landsat_rgb/v1/zhangye-formal-master/2019/09/24/*.tif
+            data/scaling_factors/v1/zhangye-formal-master-955b44ac26/static/WORLDCOVER_2021_100M.tif
+          retention-days: 7
+
