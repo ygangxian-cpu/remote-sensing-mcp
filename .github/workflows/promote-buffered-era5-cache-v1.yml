@@ -1,0 +1,80 @@
+name: Promote Buffered ERA5 Cache To Canonical
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/promote-buffered-era5-cache-v1.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 用完整覆盖缓存替换旧小ROI缓存
+        run: |
+          set -euo pipefail
+          cp             data/metadata/era5-formal-master-buffered-20190924-24h.json.gz.b64             data/metadata/era5-formal-roi-20190924-24h.json.gz.b64
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("data/metadata/era5-land-index.json")
+          x=json.loads(p.read_text(encoding="utf-8"))
+          x["regions"].pop("zhangye-c6c86510ae", None)
+          rid="zhangye-formal-buffered-4ba50c0b09"
+          if rid not in x["regions"]:
+              raise SystemExit("new buffered region missing from ERA5 index")
+          x["regions"][rid]["region_name"]="zhangye"
+          x["regions"][rid]["role"]="canonical formal-master buffered cache"
+          x["regions"][rid]["formal_master_bbox"]=[
+              99.86528182419725,
+              38.67911397351706,
+              100.47613621740223,
+              39.39776620081703
+          ]
+          p.write_text(json.dumps(x,ensure_ascii=False,indent=2,sort_keys=True)+"\n",encoding="utf-8")
+          PY
+
+          rm -rf data/era5_land/v1/zhangye-c6c86510ae
+          rm -f data/metadata/era5-formal-master-buffered-20190924-24h.json.gz.b64
+
+      - name: 验证只保留唯一正式Zhangye缓存
+        run: |
+          python - <<'PY'
+          import base64,gzip,json
+          from pathlib import Path
+          idx=json.loads(Path("data/metadata/era5-land-index.json").read_text())
+          zs=[(k,v) for k,v in idx["regions"].items() if v.get("region_name")=="zhangye"]
+          print("zhangye_regions=",[(k,v.get("bbox")) for k,v in zs])
+          if len(zs)!=1:
+              raise SystemExit("expected exactly one canonical zhangye ERA5 region")
+          p=Path("data/metadata/era5-formal-roi-20190924-24h.json.gz.b64")
+          x=json.loads(gzip.decompress(base64.b64decode("".join(p.read_text().split()))))
+          b=x["grid"]["bounds"]; f=x["formal_master_bbox"]
+          if not (b[0] <= f[0] and b[1] <= f[1] and b[2] >= f[2] and b[3] >= f[3]):
+              raise SystemExit("canonical snapshot does not contain formal master")
+          print("canonical_grid=",x["grid"])
+          print("formal_master=",f)
+          print("old_cache_exists=",Path("data/era5_land/v1/zhangye-c6c86510ae").exists())
+          PY
+
+      - name: Commit canonical cache replacement
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A data/era5_land data/metadata
+          if git diff --cached --quiet; then
+            echo "No cache changes"
+            exit 0
+          fi
+          git commit -m "data: replace legacy Zhangye ERA5 cache with formal master coverage [skip vercel]"
+          git pull --rebase origin main
+          git push origin HEAD:main
