@@ -121,6 +121,7 @@ A temporary pilot executed here may leave its large artifacts in Actions, but on
 - Formal coarse source: ELITE FY-4A/AGRI hourly 4 km LST.
 - Project time standard: UTC. ELITE filename HHMM is treated as UTC for the project.
 - MODIS time matching should use the product view-time bands and per-pixel longitude conversion rather than fixed nominal overpass time.
+- When an experiment requires the original 5-minute MODIS overpass granule, use the LAADS-backed `MOD11_L2` / `MYD11_L2` swath capability rather than substituting daily `MOD11A1` / `MYD11A1`. Historical LAADS HDF transfer requires repository secret `LAADS_TOKEN` (Earthdata bearer token); public archive listing alone does not require it.
 - MODIS LST QC used by current experiments: bits 0-1 <= 1, bits 2-3 == 0, bits 6-7 <= 2.
 - Landsat remains an independent high-resolution validation source in the formal paper workflow; do not silently use Landsat LST as a training target for a formal method.
 - Landsat persistent cache is validation-oriented: v3 stores only LST_C / ST_QA_K / QA_PIXEL / QA_RADSAT. Do not re-add SR_B2..SR_B7 to the same persistent GeoTIFF; use the scaling-factors pipeline for SR-derived predictors so Git objects stay below the 100 MiB limit.
