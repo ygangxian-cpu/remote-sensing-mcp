@@ -160,3 +160,85 @@ jobs:
             data/scaling_factors/v1/zhangye-formal-master-955b44ac26/static/WORLDCOVER_2021_100M.tif
           retention-days: 7
 
+      - name: Build 100m false-color display raster
+        run: |
+          python - <<'PY'
+          import base64
+          from pathlib import Path
+          import numpy as np
+          import rasterio
+          from rasterio.transform import from_bounds
+          from rasterio.warp import reproject
+          from rasterio.enums import Resampling
+
+          root=Path("data/landsat_rgb/v1/zhangye-formal-master/2019/09/24")
+          paths={b:root/f"{b}_20190924_30m.tif" for b in ["SR_B3","SR_B4","SR_B5"]}
+          left,bottom,right,top=99.8652818242,38.6791139735,100.4761362174,39.3977662008
+          width,height=680,800
+          dst_transform=from_bounds(left,bottom,right,top,width,height)
+          dst_crs="EPSG:4326"
+
+          arrs={}
+          for band,p in paths.items():
+              with rasterio.open(p) as src:
+                  src_arr=src.read(1,masked=True).astype("float32")
+                  src_data=src_arr.filled(np.nan)
+                  dst=np.full((height,width),np.nan,dtype="float32")
+                  reproject(
+                      source=np.where(np.isfinite(src_data),src_data,-9999.0).astype("float32"),
+                      destination=dst,
+                      src_transform=src.transform,
+                      src_crs=src.crs,
+                      src_nodata=-9999.0,
+                      dst_transform=dst_transform,
+                      dst_crs=dst_crs,
+                      dst_nodata=np.nan,
+                      resampling=Resampling.bilinear,
+                  )
+                  arrs[band]=dst
+
+          valid=np.isfinite(arrs["SR_B3"]) & np.isfinite(arrs["SR_B4"]) & np.isfinite(arrs["SR_B5"])
+          rgb=[]
+          for band in ["SR_B5","SR_B4","SR_B3"]:
+              a=arrs[band]
+              vals=a[valid]
+              lo,hi=np.percentile(vals,[2,98])
+              z=np.clip((a-lo)/(hi-lo),0,1)
+              z=np.power(z,0.92)
+              u=np.zeros(a.shape,dtype="uint8")
+              u[valid]=np.round(z[valid]*255).astype("uint8")
+              rgb.append(u)
+
+          out=root/"LANDSAT8_B5B4B3_FALSE_COLOR_100M_20190924.tif"
+          profile={
+              "driver":"GTiff","height":height,"width":width,"count":3,
+              "dtype":"uint8","crs":dst_crs,"transform":dst_transform,
+              "compress":"deflate","predictor":2,"nodata":0,
+          }
+          with rasterio.open(out,"w",**profile) as dst:
+              for i,(name,a) in enumerate(zip(["R_B5_NIR","G_B4_RED","B_B3_GREEN"],rgb),start=1):
+                  dst.write(a,i)
+                  dst.set_band_description(i,name)
+              dst.update_tags(
+                  source_product="LC08_L2SP_133033_20190924_20200826_02_T1",
+                  composite="B5(NIR)->R,B4(RED)->G,B3(GREEN)->B",
+                  stretch="2-98 percentile; gamma 0.92",
+                  grid="formal 4km master footprint; 100m display grid",
+              )
+          out.with_suffix(out.suffix+".b64").write_text(
+              base64.b64encode(out.read_bytes()).decode("ascii"),encoding="ascii")
+          print("rgb_size",out.stat().st_size,"b64_size",out.with_suffix(out.suffix+".b64").stat().st_size)
+          PY
+
+      - name: Commit compact display raster
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/landsat_rgb/v1/zhangye-formal-master/2019/09/24/LANDSAT8_B5B4B3_FALSE_COLOR_100M_20190924.tif*
+          if git diff --cached --quiet; then
+            echo "No RGB display changes"
+          else
+            git commit -m "data: add formal-master Landsat false-color display raster [skip vercel]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
