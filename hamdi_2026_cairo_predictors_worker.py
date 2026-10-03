@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import base64, csv, json, math, os, shutil
+import base64, csv, json, math, os, shutil, time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -146,12 +146,6 @@ def build():
     frac=ee.Image.cat([avg(wc.eq(k).toFloat().rename(v),p100,4096).rename(v) for k,v in WC_MAP.items()])
     stack100=s2_100.addBands(terrain).addBands(frac).select(BANDS).toFloat().clip(roi())
 
-    ordinary=[x for x in BANDS if x!="aspect"]
-    coarse=avg(stack100.select(ordinary),p1k,4096)
-    a=stack100.select("aspect").multiply(math.pi/180)
-    asp=avg(a.sin(),p1k,4096).atan2(avg(a.cos(),p1k,4096)).multiply(180/math.pi).add(360).mod(360).rename("aspect")
-    stack1k=coarse.addBands(asp).select(BANDS).toFloat().clip(roi())
-
     def bits(v,a,b):
         mask=ee.Number(1).leftShift(ee.Number(b).subtract(a).add(1)).subtract(1)
         return v.rightShift(a).bitwiseAnd(mask)
@@ -171,7 +165,65 @@ def build():
         .setDefaultProjection(p1k)
         .clip(roi())
     )
-    return stack100,stack1k,modis,s2n,s2dayn,mn
+    return stack100,modis,s2n,s2dayn,mn
+
+def build_1km_from_100m(stack100):
+    p1k=proj(1000)
+    ordinary=[x for x in BANDS if x!="aspect"]
+    coarse=avg(stack100.select(ordinary),p1k,4096)
+    a=stack100.select("aspect").multiply(math.pi/180)
+    asp=avg(a.sin(),p1k,4096).atan2(avg(a.cos(),p1k,4096)).multiply(180/math.pi).add(360).mod(360).rename("aspect")
+    return coarse.addBands(asp).select(BANDS).toFloat().clip(roi())
+
+
+def materialize_100m_asset(image, project):
+    asset_id=f"projects/{project}/assets/hamdi_2026_cairo_predictors_100m_tmp"
+    try:
+        ee.data.deleteAsset(asset_id)
+        print("deleted stale temp asset",asset_id,flush=True)
+    except Exception:
+        pass
+
+    transform=[100.0,0.0,XMIN,0.0,-100.0,YMAX]
+    task=ee.batch.Export.image.toAsset(
+        image=image.select(BANDS).toFloat(),
+        description="hamdi_2026_cairo_predictors_100m_tmp",
+        assetId=asset_id,
+        region=roi(),
+        crs=CRS,
+        crsTransform=transform,
+        maxPixels=10**13,
+        pyramidingPolicy={".default":"mean"},
+    )
+    task.start()
+    print("started EE batch asset export",task.id,asset_id,flush=True)
+    deadline=time.time()+60*60
+    while True:
+        status=task.status()
+        state=status.get("state")
+        print("asset export state=",state,flush=True)
+        if state=="COMPLETED":
+            break
+        if state in {"FAILED","CANCELLED"}:
+            raise RuntimeError("Earth Engine asset export failed: "+json.dumps(status))
+        if time.time()>deadline:
+            task.cancel()
+            raise TimeoutError("Earth Engine asset export exceeded 60 minutes")
+        time.sleep(15)
+
+    asset=ee.Image(asset_id).select(BANDS).setDefaultProjection(proj(100))
+    return asset_id,asset
+
+
+def delete_temp_asset(asset_id):
+    if not asset_id:
+        return
+    try:
+        ee.data.deleteAsset(asset_id)
+        print("deleted temp asset",asset_id,flush=True)
+    except Exception as exc:
+        print("warning: failed to delete temp asset",asset_id,exc,flush=True)
+
 
 def download_group(image,bands,scale,path):
     path.parent.mkdir(parents=True,exist_ok=True)
@@ -299,12 +351,15 @@ def main():
     project=init_ee()
     root=Path("output/hamdi_2026"); tmp=root/"groups"
     shutil.rmtree(root,ignore_errors=True); tmp.mkdir(parents=True)
-    s100,s1k,modis,s2n,s2dayn,mn=build()
+    s100_expr,modis,s2n,s2dayn,mn=build()
+    asset_id=None
+    asset_id,s100=materialize_100m_asset(s100_expr,project)
+    s1k=build_1km_from_100m(s100)
 
     # Keep each request comfortably under Earth Engine's download-size limit.
-    # Single-band requests keep the 202-scene Sentinel-2 median below
-    # Earth Engine's per-request user-memory ceiling.
-    groups=[[band] for band in BANDS]
+    # The heavy seasonal computation has already been materialized to an EE
+    # asset, so compact five-band downloads are safe and much faster here.
+    groups=[BANDS[i:i+5] for i in range(0,len(BANDS),5)]
     g100=[]; g1k=[]
     for i,group in enumerate(groups):
         a=tmp/f"100m_group_{i:02d}.tif"; b=tmp/f"1km_group_{i:02d}.tif"
@@ -336,6 +391,7 @@ def main():
     with (root/"predictor_modis_correlations.csv").open("w",newline="",encoding="utf-8") as f:
         w=csv.DictWriter(f,fieldnames=["predictor","pearson_r","n"]); w.writeheader(); w.writerows(rows)
     shutil.rmtree(tmp,ignore_errors=True)
+    delete_temp_asset(asset_id)
     print(json.dumps(summary,ensure_ascii=False,indent=2))
 if __name__=="__main__":
     main()
