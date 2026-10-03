@@ -153,6 +153,33 @@ def download_group(image,bands,scale,path):
             for chunk in r.iter_content(2*1024*1024):
                 if chunk: f.write(chunk)
 
+def force_fixed_grid(src_path, scale, out_path):
+    width=int(round((XMAX-XMIN)/scale))
+    height=int(round((YMAX-YMIN)/scale))
+    dst_transform=rasterio.transform.Affine(float(scale),0.0,XMIN,0.0,-float(scale),YMAX)
+    with rasterio.open(src_path) as src:
+        profile=src.profile.copy()
+        profile.update(width=width,height=height,transform=dst_transform,crs=CRS,nodata=NODATA,dtype="float32")
+        data=np.full((src.count,height,width),NODATA,dtype="float32")
+        for i in range(src.count):
+            reproject(
+                source=src.read(i+1).astype("float32"),
+                destination=data[i],
+                src_transform=src.transform,
+                src_crs=src.crs,
+                src_nodata=NODATA,
+                dst_transform=dst_transform,
+                dst_crs=CRS,
+                dst_nodata=NODATA,
+                resampling=Resampling.nearest,
+            )
+        descriptions=list(src.descriptions)
+    with rasterio.open(out_path,"w",**profile) as dst:
+        dst.write(data)
+        for i,name in enumerate(descriptions,1):
+            if name:
+                dst.set_band_description(i,name)
+
 def merge_groups(paths,group_names,out):
     with rasterio.open(paths[0]) as s:
         prof=s.profile.copy(); shape=(s.height,s.width); crs=s.crs; transform=s.transform
@@ -180,7 +207,7 @@ def align_single_band(src_path,reference_path,out_path):
         src_arr=src.read(1).astype("float32")
         reproject(
             source=src_arr,destination=dst,
-            src_transform=src.transform,src_crs=src.crs,src_nodata=src.nodata,
+            src_transform=src.transform,src_crs=src.crs,src_nodata=NODATA,
             dst_transform=dst_transform,dst_crs=dst_crs,dst_nodata=NODATA,
             resampling=Resampling.bilinear,
         )
@@ -208,6 +235,18 @@ def audit(p100,p1k,pmod,s2n,mn):
         if (c.height,c.width,c.crs,c.transform)!=(m.height,m.width,m.crs,m.transform):
             raise RuntimeError("MODIS diagnostic grid was not aligned to predictor 1 km grid")
         y=m.read(1).astype(float)
+        yvalid=np.isfinite(y)&(y!=NODATA)
+        yvals=y[yvalid]
+        out["modis_stats"]={
+            "n":int(yvals.size),
+            "min":float(yvals.min()) if yvals.size else None,
+            "max":float(yvals.max()) if yvals.size else None,
+            "mean":float(yvals.mean()) if yvals.size else None,
+            "std":float(yvals.std()) if yvals.size else None,
+        }
+        out["checks"]["modis_physical_range"]=bool(
+            yvals.size and np.nanmin(yvals)>-50 and np.nanmax(yvals)<100
+        )
         for i,name in enumerate(BANDS,1):
             x=c.read(i).astype(float)
             ok=np.isfinite(x)&np.isfinite(y)&(x!=NODATA)&(y!=NODATA)
@@ -234,9 +273,13 @@ def main():
         a=tmp/f"100m_group_{i:02d}.tif"; b=tmp/f"1km_group_{i:02d}.tif"
         print("download",i+1,"/",len(groups),"100m",group,flush=True)
         download_group(s100,group,100,a)
+        a_fixed=tmp/f"100m_group_{i:02d}_fixed.tif"
+        force_fixed_grid(a,100,a_fixed)
         print("download",i+1,"/",len(groups),"1km",group,flush=True)
         download_group(s1k,group,1000,b)
-        g100.append(a); g1k.append(b)
+        b_fixed=tmp/f"1km_group_{i:02d}_fixed.tif"
+        force_fixed_grid(b,1000,b_fixed)
+        g100.append(a_fixed); g1k.append(b_fixed)
 
     mt=tmp/"modis_raw.tif"
     download_group(modis,["modis_lst_c"],1000,mt)
