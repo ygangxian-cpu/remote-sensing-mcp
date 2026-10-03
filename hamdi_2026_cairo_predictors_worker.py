@@ -7,6 +7,7 @@ from pathlib import Path
 import ee
 import numpy as np
 import rasterio
+from rasterio.warp import reproject, Resampling
 import requests
 from google.oauth2 import service_account
 from pyproj import Transformer
