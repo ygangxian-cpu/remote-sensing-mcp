@@ -1,0 +1,85 @@
+name: Hamdi 2026 Cairo predictor reconstruction v1
+
+on:
+  push:
+    branches:
+      - "experiment/hamdi-2026-cairo-predictors-v1"
+    paths:
+      - "hamdi_2026_cairo_predictors_worker.py"
+      - ".github/workflows/hamdi-2026-cairo-predictors-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      EE_PROJECT: "${{ vars.EE_PROJECT || 'ee-ygangxian' }}"
+      EE_USER_CREDENTIALS_JSON_BASE64: "${{ secrets.EE_USER_CREDENTIALS_JSON_BASE64 }}"
+      EE_SERVICE_ACCOUNT_JSON_BASE64: "${{ secrets.EE_SERVICE_ACCOUNT_JSON_BASE64 }}"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Restore Earth Engine credentials
+        shell: bash
+        run: |
+          if [ -n "$EE_USER_CREDENTIALS_JSON_BASE64" ]; then
+            mkdir -p "$HOME/.config/earthengine"
+            printf '%s' "$EE_USER_CREDENTIALS_JSON_BASE64" | base64 --decode > "$HOME/.config/earthengine/credentials"
+            chmod 600 "$HOME/.config/earthengine/credentials"
+          elif [ -z "$EE_SERVICE_ACCOUNT_JSON_BASE64" ]; then
+            echo "::error::Missing Earth Engine credentials"
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install earthengine-api google-auth requests numpy rasterio pyproj
+
+      - name: Build real Cairo predictor stacks and P0/P1 audits
+        run: python hamdi_2026_cairo_predictors_worker.py
+
+      - name: Check audit gate
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path("output/hamdi_2026/audit_summary.json").read_text())
+          print(json.dumps(x["checks"], indent=2))
+          if not x["checks"]["all_passed"]:
+              raise SystemExit("Hamdi predictor P0 audit failed")
+          PY
+
+      - name: Upload GeoTIFF and audit artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hamdi-2026-cairo-predictors-v1
+          path: output/hamdi_2026/**
+          retention-days: 7
+
+      - name: Persist small P0/P1 summaries on experiment branch
+        run: |
+          mkdir -p results/hamdi_2026_cairo_predictors_v1
+          cp output/hamdi_2026/audit_summary.json results/hamdi_2026_cairo_predictors_v1/
+          cp output/hamdi_2026/predictor_modis_correlations.csv results/hamdi_2026_cairo_predictors_v1/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results/hamdi_2026_cairo_predictors_v1
+          if git diff --cached --quiet; then
+            echo "No summary changes"
+          else
+            git commit -m "results: Hamdi Cairo predictor P0 P1 audit"
+            git push origin HEAD:experiment/hamdi-2026-cairo-predictors-v1
+          fi
