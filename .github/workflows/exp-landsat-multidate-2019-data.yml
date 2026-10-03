@@ -1,0 +1,153 @@
+name: EXP 2019 Landsat Multi-date Data Prep
+
+on:
+  push:
+    branches:
+      - experiment/landsat-multidate-2019-data
+    paths:
+      - ".github/workflows/exp-landsat-multidate-2019-data.yml"
+      - "experiments/landsat_multidate_2019_dates.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        include:
+          - date: "2019-05-03"
+            product_id: "LC08_L2SP_133033_20190503_20200828_02_T1"
+          - date: "2019-05-19"
+            product_id: "LC08_L2SP_133033_20190519_20200828_02_T1"
+          - date: "2019-07-22"
+            product_id: "LC08_L2SP_133033_20190722_20200827_02_T1"
+          - date: "2019-09-15"
+            product_id: "LC08_L2SP_134033_20190915_20200826_02_T1"
+          - date: "2019-10-26"
+            product_id: "LC08_L2SP_133033_20191026_20200825_02_T1"
+
+    env:
+      EE_PROJECT: "${{ vars.EE_PROJECT || 'ee-ygangxian' }}"
+      EE_USER_CREDENTIALS_JSON_BASE64: "${{ secrets.EE_USER_CREDENTIALS_JSON_BASE64 }}"
+      EE_SERVICE_ACCOUNT_JSON_BASE64: "${{ secrets.EE_SERVICE_ACCOUNT_JSON_BASE64 }}"
+      FORMAL_BBOX: "99.86528182419725,38.67911397351706,100.47613621740223,39.39776620081703"
+      REGION_NAME: "zhangye-multidate-2019"
+      TARGET_DATE: "${{ matrix.date }}"
+      TARGET_PRODUCT_ID: "${{ matrix.product_id }}"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/landsat-multidate-2019-data
+
+      - name: Restore Earth Engine credentials
+        shell: bash
+        run: |
+          if [ -n "$EE_USER_CREDENTIALS_JSON_BASE64" ]; then
+            mkdir -p "$HOME/.config/earthengine"
+            printf '%s' "$EE_USER_CREDENTIALS_JSON_BASE64" | base64 --decode > "$HOME/.config/earthengine/credentials"
+            chmod 600 "$HOME/.config/earthengine/credentials"
+          elif [ -z "$EE_SERVICE_ACCOUNT_JSON_BASE64" ]; then
+            echo "::error::Missing Earth Engine credentials"
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install earthengine-api google-auth requests numpy rasterio
+
+      - name: Resolve date window
+        shell: bash
+        run: |
+          echo "NEXT_DATE=$(date -u -d "$TARGET_DATE + 1 day" +%F)" >> "$GITHUB_ENV"
+
+      - name: Fetch ANCFDS T_nadir full day
+        run: |
+          python tpdc_ancfds_worker.py             --start-date "$TARGET_DATE"             --end-date "$NEXT_DATE"             --bbox "$FORMAL_BBOX"             --region-name "$REGION_NAME"             --hours all             --output-unit celsius
+          mkdir -p output/provenance
+          mv output/result.json "output/provenance/ancfds_${TARGET_DATE}.json"
+
+      - name: Fetch Landsat LST and QA
+        run: |
+          python landsat_worker.py             --start-date "$TARGET_DATE"             --end-date "$NEXT_DATE"             --bbox "$FORMAL_BBOX"             --region-name "$REGION_NAME"             --satellites L8             --cloud-cover-max 80
+          mv output/result.json "output/provenance/landsat_${TARGET_DATE}.json"
+
+      - name: Pin selected Landsat scene
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import shutil
+          from pathlib import Path
+
+          date = os.environ["TARGET_DATE"]
+          product_id = os.environ["TARGET_PRODUCT_ID"]
+          meta = json.loads(
+              Path(f"output/provenance/landsat_{date}.json").read_text(encoding="utf-8")
+          )
+          matches = [x for x in meta["files"] if x["product_id"] == product_id]
+          if len(matches) != 1:
+              raise SystemExit(
+                  f"Expected exactly one selected Landsat scene {product_id}, got {len(matches)}"
+              )
+          src = Path(matches[0]["artifact_path"])
+          dst = Path("output/selected_landsat") / date / "landsat_target_lst_qa.tif"
+          dst.parent.mkdir(parents=True, exist_ok=True)
+          shutil.copy2(src, dst)
+          (dst.parent / "selected_scene.json").write_text(
+              json.dumps(matches[0], indent=2, ensure_ascii=False),
+              encoding="utf-8",
+          )
+          print(dst)
+          PY
+
+      - name: Fetch ERA5-Land full day
+        run: |
+          python era5_worker.py             --start-date "${TARGET_DATE}T00:00:00"             --end-date "${NEXT_DATE}T00:00:00"             --bbox "$FORMAL_BBOX"             --region-name "$REGION_NAME"
+          mv output/result.json "output/provenance/era5_${TARGET_DATE}.json"
+
+      - name: Build date-specific scaling factors
+        run: |
+          python scaling_factors_worker.py             --start-date "$TARGET_DATE"             --end-date "$NEXT_DATE"             --bbox "$FORMAL_BBOX"             --region-name "$REGION_NAME"
+          mv output/result.json "output/provenance/scaling_${TARGET_DATE}.json"
+
+      - name: Write bundle manifest
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          date = os.environ["TARGET_DATE"]
+          payload = {
+              "date": date,
+              "target_hour_utc": 4,
+              "selected_landsat_product_id": os.environ["TARGET_PRODUCT_ID"],
+              "formal_bbox_wgs84": [99.86528182419725, 38.67911397351706, 100.47613621740223, 39.39776620081703],
+              "components": ["ANCFDS_24h", "Landsat_LST_QA", "ERA5-Land_24h", "surface_scaling_factors"],
+              "science_role": "development diagnostic; candidate-date comparison, not pristine final holdout"
+          }
+          p = Path("output/provenance") / f"bundle_{date}.json"
+          p.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+          PY
+
+      - name: Upload date data bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: "landsat-multidate-2019-${{ matrix.date }}"
+          path: |
+            output/tpdc_ancfds/**/*.tif
+            output/selected_landsat/**
+            output/era5_land/**/*.tif
+            output/scaling_factors/**
+            output/provenance/*.json
+          if-no-files-found: error
+          retention-days: 14
