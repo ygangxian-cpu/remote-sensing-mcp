@@ -116,7 +116,7 @@ def build():
     # A collection composite may otherwise fall back to an unhelpful default
     # projection and become an artificially smooth field when reprojected later.
     c20=c.map(lambda img: img.resample("bilinear").reproject(p20))
-    med=c20.median().clip(roi())
+    med=c20.median().setDefaultProjection(p20).clip(roi())
     s2_100=avg(with_indices(med).select(REF+IDX),p100)
 
     dem100=avg(ee.Image(SRTM).select("elevation"),p100,4096).rename("elevation")
@@ -145,7 +145,7 @@ def build():
     # Same rule for MODIS: put each QC-masked daily LST on the analysis grid
     # before taking the seasonal median, rather than reprojecting the composite.
     mc1k=mc.map(lambda img: img.resample("bilinear").reproject(p1k))
-    modis=mc1k.median().clip(roi())
+    modis=mc1k.median().setDefaultProjection(p1k).clip(roi())
     return stack100,stack1k,modis,s2n,mn
 
 def download_group(image,bands,scale,path):
