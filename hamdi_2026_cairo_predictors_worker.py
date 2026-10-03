@@ -82,7 +82,9 @@ def mask_s2(img):
     scl=img.select("SCL"); qa=img.select("QA60")
     m=scl.eq(2).Or(scl.eq(4)).Or(scl.eq(5)).Or(scl.eq(6))
     m=m.And(qa.bitwiseAnd(1<<10).eq(0)).And(qa.bitwiseAnd(1<<11).eq(0))
-    return img.select(["B2","B3","B4","B8","B11","B12"],REF).multiply(1e-4).updateMask(m)
+    out=img.select(["B2","B3","B4","B8","B11","B12"],REF).multiply(1e-4).updateMask(m)
+    date_key=ee.Date(img.get("system:time_start")).format("YYYY-MM-dd")
+    return out.copyProperties(img,["system:time_start","CLOUDY_PIXEL_PERCENTAGE"]).set("date_key",date_key)
 
 def sdiv(a,b):
     return a.divide(b.where(b.abs().lt(1e-6),1e-6))
@@ -112,19 +114,22 @@ def build():
        .filter(ee.Filter.lte("CLOUDY_PIXEL_PERCENTAGE",40)).map(mask_s2))
     s2n=int(c.size().getInfo())
     if s2n<1: raise RuntimeError("No S2 scenes")
-    # Reconstructed compute-safe contract:
-    # 1) harmonize each clear scene on the common 20 m grid;
-    # 2) derive spectral indices per scene;
-    # 3) area-aggregate that scene to 100 m;
-    # 4) take the seasonal median on the final 100 m predictor grid.
-    #
-    # This avoids both the ImageCollection default-projection trap and an
-    # impractically expensive 20 m seasonal reduction over the full Cairo ROI.
-    def scene_to_100(img):
-        img20=img.resample("bilinear").reproject(p20)
-        stack20=with_indices(img20).select(REF+IDX)
-        return avg(stack20,p100).setDefaultProjection(p100)
-    c100=c.map(scene_to_100)
+    # Build one 100 m predictor image per acquisition date. Adjacent S2
+    # granules from the same day are mosaicked before the seasonal reducer, so
+    # a date is counted once rather than once per tile/granule.
+    dates=ee.List(c.aggregate_array("date_key")).distinct().sort()
+    s2dayn=int(dates.size().getInfo())
+    print("Sentinel-2 granules=",s2n,"distinct dates=",s2dayn,flush=True)
+
+    def daily_to_100(date_value):
+        date_value=ee.String(date_value)
+        daily=c.filter(ee.Filter.eq("date_key",date_value))
+        daily20=daily.map(lambda img: img.resample("bilinear").reproject(p20))
+        mosaic20=daily20.mosaic().setDefaultProjection(p20)
+        stack20=with_indices(mosaic20).select(REF+IDX)
+        return avg(stack20,p100).setDefaultProjection(p100).set("date_key",date_value)
+
+    c100=ee.ImageCollection.fromImages(dates.map(daily_to_100))
     s2_100=c100.median().setDefaultProjection(p100).clip(roi())
 
     dem100=avg(ee.Image(SRTM).select("elevation"),p100,4096).rename("elevation")
@@ -154,7 +159,7 @@ def build():
     # before taking the seasonal median, rather than reprojecting the composite.
     mc1k=mc.map(lambda img: img.resample("bilinear").reproject(p1k))
     modis=mc1k.median().setDefaultProjection(p1k).clip(roi())
-    return stack100,stack1k,modis,s2n,mn
+    return stack100,stack1k,modis,s2n,s2dayn,mn
 
 def download_group(image,bands,scale,path):
     path.parent.mkdir(parents=True,exist_ok=True)
@@ -231,9 +236,10 @@ def align_single_band(src_path,reference_path,out_path):
     with rasterio.open(out_path,"w",**profile) as d:
         d.write(dst,1); d.set_band_description(1,"modis_lst_c")
 
-def audit(p100,p1k,pmod,s2n,mn):
+def audit(p100,p1k,pmod,s2n,s2dayn,mn):
     out={"created_at_utc":datetime.now(timezone.utc).isoformat(),"predictors":BANDS,
-         "s2_scene_count":s2n,"modis_scene_count":mn,"checks":{}}
+         "s2_scene_count":s2n,"s2_distinct_date_count":s2dayn,
+         "modis_scene_count":mn,"checks":{}}
     with rasterio.open(p100) as f, rasterio.open(p1k) as c:
         out["grid100"]={"width":f.width,"height":f.height,"transform":list(f.transform)[:6],"crs":str(f.crs)}
         out["grid1k"]={"width":c.width,"height":c.height,"transform":list(c.transform)[:6],"crs":str(c.crs)}
@@ -281,7 +287,7 @@ def main():
     project=init_ee()
     root=Path("output/hamdi_2026"); tmp=root/"groups"
     shutil.rmtree(root,ignore_errors=True); tmp.mkdir(parents=True)
-    s100,s1k,modis,s2n,mn=build()
+    s100,s1k,modis,s2n,s2dayn,mn=build()
 
     # Keep each request comfortably under Earth Engine's download-size limit.
     # Single-band requests keep the 202-scene Sentinel-2 median below
@@ -312,7 +318,7 @@ def main():
     # Reproject it explicitly to the already-verified 1 km predictor grid.
     align_single_band(mt,f1k,fm)
 
-    summary,rows=audit(f100,f1k,fm,s2n,mn)
+    summary,rows=audit(f100,f1k,fm,s2n,s2dayn,mn)
     summary["earth_engine_project"]=project
     (root/"audit_summary.json").write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding="utf-8")
     with (root/"predictor_modis_correlations.csv").open("w",newline="",encoding="utf-8") as f:
