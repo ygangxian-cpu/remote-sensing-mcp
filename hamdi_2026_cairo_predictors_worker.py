@@ -130,7 +130,13 @@ def build():
         return avg(stack20,p100).setDefaultProjection(p100).set("date_key",date_value)
 
     c100=ee.ImageCollection.fromImages(dates.map(daily_to_100))
-    s2_100=c100.median().setDefaultProjection(p100).clip(roi())
+    s2_reduced=c100.reduce(ee.Reducer.median(),8)
+    s2_100=(
+        s2_reduced
+        .select([name+"_median" for name in REF+IDX],REF+IDX)
+        .setDefaultProjection(p100)
+        .clip(roi())
+    )
 
     dem100=avg(ee.Image(SRTM).select("elevation"),p100,4096).rename("elevation")
     ter=ee.Terrain.products(dem100)
@@ -158,7 +164,13 @@ def build():
     # Same rule for MODIS: put each QC-masked daily LST on the analysis grid
     # before taking the seasonal median, rather than reprojecting the composite.
     mc1k=mc.map(lambda img: img.resample("bilinear").reproject(p1k))
-    modis=mc1k.median().setDefaultProjection(p1k).clip(roi())
+    modis=(
+        mc1k.reduce(ee.Reducer.median(),4)
+        .select("modis_lst_c_median")
+        .rename("modis_lst_c")
+        .setDefaultProjection(p1k)
+        .clip(roi())
+    )
     return stack100,stack1k,modis,s2n,s2dayn,mn
 
 def download_group(image,bands,scale,path):
