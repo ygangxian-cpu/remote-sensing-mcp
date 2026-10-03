@@ -112,7 +112,11 @@ def build():
        .filter(ee.Filter.lte("CLOUDY_PIXEL_PERCENTAGE",40)).map(mask_s2))
     s2n=int(c.size().getInfo())
     if s2n<1: raise RuntimeError("No S2 scenes")
-    med=c.median().resample("bilinear").reproject(p20).clip(roi())
+    # Critical: harmonize EACH scene before ImageCollection.median().
+    # A collection composite may otherwise fall back to an unhelpful default
+    # projection and become an artificially smooth field when reprojected later.
+    c20=c.map(lambda img: img.resample("bilinear").reproject(p20))
+    med=c20.median().clip(roi())
     s2_100=avg(with_indices(med).select(REF+IDX),p100)
 
     dem100=avg(ee.Image(SRTM).select("elevation"),p100,4096).rename("elevation")
@@ -138,7 +142,10 @@ def build():
         return raw.multiply(0.02).subtract(273.15).rename("modis_lst_c").updateMask(m)
     mc=ee.ImageCollection(MODIS).filterBounds(roi()).filterDate(START,END).map(qcmask)
     mn=int(mc.size().getInfo())
-    modis=mc.median().resample("bilinear").reproject(p1k).clip(roi())
+    # Same rule for MODIS: put each QC-masked daily LST on the analysis grid
+    # before taking the seasonal median, rather than reprojecting the composite.
+    mc1k=mc.map(lambda img: img.resample("bilinear").reproject(p1k))
+    modis=mc1k.median().clip(roi())
     return stack100,stack1k,modis,s2n,mn
 
 def download_group(image,bands,scale,path):
