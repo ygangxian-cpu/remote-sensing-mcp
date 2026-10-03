@@ -284,7 +284,9 @@ def main():
     s100,s1k,modis,s2n,mn=build()
 
     # Keep each request comfortably under Earth Engine's download-size limit.
-    groups=[BANDS[i:i+5] for i in range(0,len(BANDS),5)]
+    # Single-band requests keep the 202-scene Sentinel-2 median below
+    # Earth Engine's per-request user-memory ceiling.
+    groups=[[band] for band in BANDS]
     g100=[]; g1k=[]
     for i,group in enumerate(groups):
         a=tmp/f"100m_group_{i:02d}.tif"; b=tmp/f"1km_group_{i:02d}.tif"
