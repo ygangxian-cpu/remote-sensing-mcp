@@ -1,0 +1,27 @@
+{
+  "experiment_id": "landsat_multidate_2019_v1",
+  "purpose": "development diagnostic for selecting representative high-quality 2019 Landsat validation dates",
+  "roi_scout_wgs84": [99.86, 38.67, 100.5, 39.43],
+  "formal_roi_wgs84": [99.86528182419725, 38.67911397351706, 100.47613621740223, 39.39776620081703],
+  "target_hour_utc": 4,
+  "baseline_date": "2019-09-24",
+  "baseline_role": "existing canonical single-date reference; excluded from five-date scout",
+  "selection_rule": {
+    "minimum_roi_clear_lst_ratio": 0.55,
+    "minimum_roi_native_lst_ratio": 0.70,
+    "preferred_minimum_date_spacing_days": 24,
+    "ranking": "ROI clear-LST ratio, then native-LST ratio, then lower scene cloud metadata"
+  },
+  "dates": [
+    {"date":"2019-05-03","product_id":"LC08_L2SP_133033_20190503_20200828_02_T1","acquired_utc":"2019-05-03T03:55:09.404000Z","cloud_cover":5.63,"roi_native_lst_ratio":0.9963207273360521,"roi_clear_lst_ratio":0.925609567160958},
+    {"date":"2019-05-19","product_id":"LC08_L2SP_133033_20190519_20200828_02_T1","acquired_utc":"2019-05-19T03:55:19.916000Z","cloud_cover":3.63,"roi_native_lst_ratio":0.9963688678310996,"roi_clear_lst_ratio":0.9845029919045187},
+    {"date":"2019-07-22","product_id":"LC08_L2SP_133033_20190722_20200827_02_T1","acquired_utc":"2019-07-22T03:55:41.996000Z","cloud_cover":3.63,"roi_native_lst_ratio":0.996213729045629,"roi_clear_lst_ratio":0.9643104211072083},
+    {"date":"2019-09-15","product_id":"LC08_L2SP_134033_20190915_20200826_02_T1","acquired_utc":"2019-09-15T04:02:10.515000Z","cloud_cover":5.03,"roi_native_lst_ratio":0.9952999209942179,"roi_clear_lst_ratio":0.8647392178088774},
+    {"date":"2019-10-26","product_id":"LC08_L2SP_133033_20191026_20200825_02_T1","acquired_utc":"2019-10-26T03:56:07.037000Z","cloud_cover":4.36,"roi_native_lst_ratio":0.9964253778157853,"roi_clear_lst_ratio":0.9775556483434055}
+  ],
+  "provenance": {
+    "scout_workflow_run": 36653792591,
+    "scout_artifact_id": 11071368290,
+    "scout_artifact": "landsat-validation-date-scout-2019"
+  }
+}
