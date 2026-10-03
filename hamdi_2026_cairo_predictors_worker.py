@@ -112,12 +112,20 @@ def build():
        .filter(ee.Filter.lte("CLOUDY_PIXEL_PERCENTAGE",40)).map(mask_s2))
     s2n=int(c.size().getInfo())
     if s2n<1: raise RuntimeError("No S2 scenes")
-    # Critical: harmonize EACH scene before ImageCollection.median().
-    # A collection composite may otherwise fall back to an unhelpful default
-    # projection and become an artificially smooth field when reprojected later.
-    c20=c.map(lambda img: img.resample("bilinear").reproject(p20))
-    med=c20.median().setDefaultProjection(p20).clip(roi())
-    s2_100=avg(with_indices(med).select(REF+IDX),p100)
+    # Reconstructed compute-safe contract:
+    # 1) harmonize each clear scene on the common 20 m grid;
+    # 2) derive spectral indices per scene;
+    # 3) area-aggregate that scene to 100 m;
+    # 4) take the seasonal median on the final 100 m predictor grid.
+    #
+    # This avoids both the ImageCollection default-projection trap and an
+    # impractically expensive 20 m seasonal reduction over the full Cairo ROI.
+    def scene_to_100(img):
+        img20=img.resample("bilinear").reproject(p20)
+        stack20=with_indices(img20).select(REF+IDX)
+        return avg(stack20,p100).setDefaultProjection(p100)
+    c100=c.map(scene_to_100)
+    s2_100=c100.median().setDefaultProjection(p100).clip(roi())
 
     dem100=avg(ee.Image(SRTM).select("elevation"),p100,4096).rename("elevation")
     ter=ee.Terrain.products(dem100)
@@ -155,7 +163,9 @@ def download_group(image,bands,scale,path):
         "name":path.stem,"region":roi(),"crs":CRS,"crs_transform":tr,"format":"GEO_TIFF"
     })
     with requests.get(url,stream=True,timeout=300) as r:
-        r.raise_for_status()
+        if not r.ok:
+            body=r.text[:4000]
+            raise RuntimeError(f"Earth Engine download failed {r.status_code}: {body}")
         with path.open("wb") as f:
             for chunk in r.iter_content(2*1024*1024):
                 if chunk: f.write(chunk)
