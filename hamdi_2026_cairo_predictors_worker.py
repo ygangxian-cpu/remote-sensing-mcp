@@ -140,10 +140,10 @@ def build():
     modis=mc.median().resample("bilinear").reproject(p1k).clip(roi())
     return stack100,stack1k,modis,s2n,mn
 
-def download(image,band,scale,path):
+def download_group(image,bands,scale,path):
     path.parent.mkdir(parents=True,exist_ok=True)
     tr=[float(scale),0.0,XMIN,0.0,-float(scale),YMAX]
-    url=ee.Image(image).select(band).unmask(NODATA).getDownloadURL({
+    url=ee.Image(image).select(bands).unmask(NODATA).getDownloadURL({
         "name":path.stem,"region":roi(),"crs":CRS,"crs_transform":tr,"format":"GEO_TIFF"
     })
     with requests.get(url,stream=True,timeout=300) as r:
@@ -152,17 +152,39 @@ def download(image,band,scale,path):
             for chunk in r.iter_content(2*1024*1024):
                 if chunk: f.write(chunk)
 
-def stack(paths,names,out):
+def merge_groups(paths,group_names,out):
     with rasterio.open(paths[0]) as s:
         prof=s.profile.copy(); shape=(s.height,s.width); crs=s.crs; transform=s.transform
-    prof.update(count=len(paths),dtype="float32",nodata=NODATA,compress="deflate",predictor=3)
+    names=[name for group in group_names for name in group]
+    prof.update(count=len(names),dtype="float32",nodata=NODATA,compress="deflate",predictor=3)
+    band_no=1
     with rasterio.open(out,"w",**prof) as d:
-        for i,(p,n) in enumerate(zip(paths,names),1):
-            with rasterio.open(p) as s:
+        for path,names_in_group in zip(paths,group_names):
+            with rasterio.open(path) as s:
                 if (s.height,s.width)!=shape or s.crs!=crs or s.transform!=transform:
-                    raise RuntimeError(f"grid mismatch: {p}")
-                a=s.read(1).astype("float32")
-            d.write(a,i); d.set_band_description(i,n)
+                    raise RuntimeError(f"grid mismatch: {path}")
+                data=s.read().astype("float32")
+            if data.shape[0] != len(names_in_group):
+                raise RuntimeError(f"band-count mismatch: {path}")
+            for j,name in enumerate(names_in_group):
+                d.write(data[j],band_no); d.set_band_description(band_no,name); band_no+=1
+
+def align_single_band(src_path,reference_path,out_path):
+    with rasterio.open(reference_path) as ref:
+        profile=ref.profile.copy()
+        profile.update(count=1,dtype="float32",nodata=NODATA,compress="deflate",predictor=3)
+        dst=np.full((ref.height,ref.width),NODATA,dtype="float32")
+        dst_crs, dst_transform = ref.crs, ref.transform
+    with rasterio.open(src_path) as src:
+        src_arr=src.read(1).astype("float32")
+        reproject(
+            source=src_arr,destination=dst,
+            src_transform=src.transform,src_crs=src.crs,src_nodata=src.nodata,
+            dst_transform=dst_transform,dst_crs=dst_crs,dst_nodata=NODATA,
+            resampling=Resampling.bilinear,
+        )
+    with rasterio.open(out_path,"w",**profile) as d:
+        d.write(dst,1); d.set_band_description(1,"modis_lst_c")
 
 def audit(p100,p1k,pmod,s2n,mn):
     out={"created_at_utc":datetime.now(timezone.utc).isoformat(),"predictors":BANDS,
@@ -177,11 +199,13 @@ def audit(p100,p1k,pmod,s2n,mn):
         valid=np.all(np.isfinite(fr)&(fr!=NODATA),axis=0)
         vals=fr[:,valid]; sums=vals.sum(axis=0)
         out["worldcover_fraction_sum"]={"n":int(sums.size),"mean":float(sums.mean()),"p01":float(np.percentile(sums,1)),"p99":float(np.percentile(sums,99))}
-        out["checks"]["fraction_bounds"]=bool(np.nanmin(vals)>=-1e-6 and np.nanmax(vals)<=1.000001)
-        out["checks"]["fraction_sum"]=bool(np.mean(np.abs(sums-1)<=0.02)>=0.99)
+        out["checks"]["fraction_bounds"]=bool(vals.size and np.nanmin(vals)>=-1e-6 and np.nanmax(vals)<=1.000001)
+        out["checks"]["fraction_sum"]=bool(sums.size and np.mean(np.abs(sums-1)<=0.02)>=0.99)
 
     rows=[]
     with rasterio.open(p1k) as c, rasterio.open(pmod) as m:
+        if (c.height,c.width,c.crs,c.transform)!=(m.height,m.width,m.crs,m.transform):
+            raise RuntimeError("MODIS diagnostic grid was not aligned to predictor 1 km grid")
         y=m.read(1).astype(float)
         for i,name in enumerate(BANDS,1):
             x=c.read(i).astype(float)
@@ -198,19 +222,33 @@ def audit(p100,p1k,pmod,s2n,mn):
 
 def main():
     project=init_ee()
-    root=Path("output/hamdi_2026"); tmp=root/"bands"
+    root=Path("output/hamdi_2026"); tmp=root/"groups"
     shutil.rmtree(root,ignore_errors=True); tmp.mkdir(parents=True)
     s100,s1k,modis,s2n,mn=build()
-    p100=[]; p1k=[]
-    for b in BANDS:
-        a=tmp/f"100m_{b}.tif"; c=tmp/f"1km_{b}.tif"
-        download(s100,b,100,a); download(s1k,b,1000,c)
-        p100.append(a); p1k.append(c)
-    mt=tmp/"modis.tif"; download(modis,"modis_lst_c",1000,mt)
+
+    # Keep each request comfortably under Earth Engine's download-size limit.
+    groups=[BANDS[i:i+5] for i in range(0,len(BANDS),5)]
+    g100=[]; g1k=[]
+    for i,group in enumerate(groups):
+        a=tmp/f"100m_group_{i:02d}.tif"; b=tmp/f"1km_group_{i:02d}.tif"
+        print("download",i+1,"/",len(groups),"100m",group,flush=True)
+        download_group(s100,group,100,a)
+        print("download",i+1,"/",len(groups),"1km",group,flush=True)
+        download_group(s1k,group,1000,b)
+        g100.append(a); g1k.append(b)
+
+    mt=tmp/"modis_raw.tif"
+    download_group(modis,["modis_lst_c"],1000,mt)
+
     f100=root/"HAMDI_CAIRO_2025_SUMMER_PREDICTORS_100M.tif"
     f1k=root/"HAMDI_CAIRO_2025_SUMMER_PREDICTORS_1KM.tif"
     fm=root/"MOD11A1_2025_SUMMER_MEDIAN_DAY_1KM_C.tif"
-    stack(p100,BANDS,f100); stack(p1k,BANDS,f1k); shutil.copy2(mt,fm)
+    merge_groups(g100,groups,f100)
+    merge_groups(g1k,groups,f1k)
+    # GEE may round a masked MODIS download by one column at the clipped edge.
+    # Reproject it explicitly to the already-verified 1 km predictor grid.
+    align_single_band(mt,f1k,fm)
+
     summary,rows=audit(f100,f1k,fm,s2n,mn)
     summary["earth_engine_project"]=project
     (root/"audit_summary.json").write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding="utf-8")
@@ -218,6 +256,5 @@ def main():
         w=csv.DictWriter(f,fieldnames=["predictor","pearson_r","n"]); w.writeheader(); w.writerows(rows)
     shutil.rmtree(tmp,ignore_errors=True)
     print(json.dumps(summary,ensure_ascii=False,indent=2))
-
 if __name__=="__main__":
     main()
