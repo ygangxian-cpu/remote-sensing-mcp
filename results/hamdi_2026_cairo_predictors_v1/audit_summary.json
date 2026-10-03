@@ -1,0 +1,169 @@
+{
+  "created_at_utc": "2026-10-03T01:34:22.065636+00:00",
+  "predictors": [
+    "blue",
+    "green",
+    "red",
+    "nir",
+    "swir1",
+    "swir2",
+    "ndvi",
+    "evi",
+    "savi",
+    "ndwi",
+    "mndwi",
+    "ndmi",
+    "ndbi",
+    "ui",
+    "bsi",
+    "nbr",
+    "elevation",
+    "slope",
+    "aspect",
+    "wc_tree_cover_frac",
+    "wc_shrubland_frac",
+    "wc_grassland_frac",
+    "wc_cropland_frac",
+    "wc_built_up_frac",
+    "wc_bare_sparse_frac",
+    "wc_snow_ice_frac",
+    "wc_water_frac",
+    "wc_herbaceous_wetland_frac",
+    "wc_mangroves_frac",
+    "wc_moss_lichen_frac"
+  ],
+  "s2_scene_count": 202,
+  "modis_scene_count": 92,
+  "checks": {
+    "band_count": true,
+    "exact_10x_nesting": true,
+    "fraction_bounds": true,
+    "fraction_sum": true,
+    "modis_physical_range": true,
+    "all_passed": true
+  },
+  "grid100": {
+    "width": 550,
+    "height": 630,
+    "transform": [
+      100.0,
+      0.0,
+      306000.0,
+      0.0,
+      -100.0,
+      3360000.0
+    ],
+    "crs": "EPSG:32636"
+  },
+  "grid1k": {
+    "width": 55,
+    "height": 63,
+    "transform": [
+      1000.0,
+      0.0,
+      306000.0,
+      0.0,
+      -1000.0,
+      3360000.0
+    ],
+    "crs": "EPSG:32636"
+  },
+  "worldcover_fraction_sum": {
+    "n": 346500,
+    "mean": 1.00000000000244,
+    "p01": 0.9999999701976776,
+    "p99": 1.0000000298023224
+  },
+  "modis_stats": {
+    "n": 3465,
+    "min": 35.983402252197266,
+    "max": 39.2227668762207,
+    "mean": 37.895156491542444,
+    "std": 0.7504953734597768
+  },
+  "top_correlations": [
+    {
+      "predictor": "swir2",
+      "pearson_r": 0.9984240379282796,
+      "n": 3465
+    },
+    {
+      "predictor": "swir1",
+      "pearson_r": 0.9976744093792028,
+      "n": 3465
+    },
+    {
+      "predictor": "red",
+      "pearson_r": 0.9967296190979187,
+      "n": 3465
+    },
+    {
+      "predictor": "green",
+      "pearson_r": 0.996585253561381,
+      "n": 3465
+    },
+    {
+      "predictor": "nir",
+      "pearson_r": 0.99437249190162,
+      "n": 3465
+    },
+    {
+      "predictor": "ndwi",
+      "pearson_r": 0.9931718167799269,
+      "n": 3465
+    },
+    {
+      "predictor": "blue",
+      "pearson_r": 0.9900650347663253,
+      "n": 3465
+    },
+    {
+      "predictor": "savi",
+      "pearson_r": -0.9896015814431462,
+      "n": 3465
+    },
+    {
+      "predictor": "ndmi",
+      "pearson_r": -0.9893373232497893,
+      "n": 3465
+    },
+    {
+      "predictor": "ndbi",
+      "pearson_r": 0.9893373232497893,
+      "n": 3465
+    }
+  ],
+  "key_correlations": {
+    "swir2": {
+      "predictor": "swir2",
+      "pearson_r": 0.9984240379282796,
+      "n": 3465
+    },
+    "ndbi": {
+      "predictor": "ndbi",
+      "pearson_r": 0.9893373232497893,
+      "n": 3465
+    },
+    "ndvi": {
+      "predictor": "ndvi",
+      "pearson_r": -0.9859270596114561,
+      "n": 3465
+    },
+    "mndwi": {
+      "predictor": "mndwi",
+      "pearson_r": 0.9422043263322386,
+      "n": 3465
+    },
+    "wc_built_up_frac": {
+      "predictor": "wc_built_up_frac",
+      "pearson_r": -0.0980715613893437,
+      "n": 3465
+    },
+    "wc_bare_sparse_frac": {
+      "predictor": "wc_bare_sparse_frac",
+      "pearson_r": 0.38103112041013953,
+      "n": 3465
+    }
+  },
+  "earth_engine_project": "ee-ygangxian"
+}
