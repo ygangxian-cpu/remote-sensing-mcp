@@ -1,0 +1,167 @@
+name: 桂林2022-08-24主流程数据准备
+
+on:
+  push:
+    branches:
+      - experiment/guilin-20220824-data
+    paths:
+      - ".github/workflows/guilin-20220824-data.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  ROI: "110.12447068021214,24.99113120420509,110.49277994670115,25.341474165011704"
+  REGION: "guilin-20220824"
+  START_DATE: "2022-08-24"
+  END_DATE: "2022-08-25"
+  START_ISO: "2022-08-24T00:00:00"
+  END_ISO: "2022-08-25T00:00:00"
+
+jobs:
+  ee_inputs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      EE_PROJECT: "${{ vars.EE_PROJECT || 'ee-ygangxian' }}"
+      EE_USER_CREDENTIALS_JSON_BASE64: "${{ secrets.EE_USER_CREDENTIALS_JSON_BASE64 }}"
+      EE_SERVICE_ACCOUNT_JSON_BASE64: "${{ secrets.EE_SERVICE_ACCOUNT_JSON_BASE64 }}"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/guilin-20220824-data
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 恢复Earth Engine认证
+        shell: bash
+        run: |
+          if [ -n "$EE_USER_CREDENTIALS_JSON_BASE64" ]; then
+            mkdir -p "$HOME/.config/earthengine"
+            printf '%s' "$EE_USER_CREDENTIALS_JSON_BASE64" | base64 --decode > "$HOME/.config/earthengine/credentials"
+            chmod 600 "$HOME/.config/earthengine/credentials"
+          elif [ -z "$EE_SERVICE_ACCOUNT_JSON_BASE64" ]; then
+            echo "::error::Missing Earth Engine credentials"
+            exit 1
+          fi
+
+      - name: 安装依赖
+        run: pip install earthengine-api google-auth requests numpy rasterio
+
+      - name: 获取24小时ERA5-Land
+        run: |
+          python era5_worker.py --start-date "$START_ISO" --end-date "$END_ISO" --bbox "$ROI" --region-name "$REGION"
+          mkdir -p bundle/era5 bundle/meta
+          cp -a output/era5_land/. bundle/era5/
+          cp output/result.json bundle/meta/era5_result.json
+          rm -rf output
+
+      - name: 获取当天Landsat验证影像
+        run: |
+          python landsat_worker.py --start-date "$START_DATE" --end-date "$END_DATE" --bbox "$ROI" --region-name "$REGION" --satellites "L8,L9" --cloud-cover-max 80
+          mkdir -p bundle/landsat bundle/meta
+          cp -a output/landsat/. bundle/landsat/
+          cp output/result.json bundle/meta/landsat_result.json
+          rm -rf output
+
+      - name: 获取100m尺度因子与MCD43A3反照率
+        run: |
+          python scaling_factors_worker.py --start-date "$START_DATE" --end-date "$END_DATE" --bbox "$ROI" --region-name "$REGION"
+          mkdir -p bundle/scaling_factors bundle/meta
+          cp -a output/scaling_factors/. bundle/scaling_factors/
+          cp output/result.json bundle/meta/scaling_factors_result.json
+          rm -rf output
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: guilin-20220824-ee-inputs
+          path: bundle/**
+          retention-days: 3
+
+  ancfds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/guilin-20220824-data
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 安装依赖
+        run: pip install requests numpy rasterio
+      - name: 获取ANCFDS整日T_nadir源文件
+        run: |
+          python tpdc_ancfds_worker.py --start-date "$START_DATE" --end-date "$END_DATE" --bbox "$ROI" --region-name "$REGION" --hours all --output-unit celsius
+          mkdir -p bundle/ancfds bundle/meta
+          cp -a output/tpdc_ancfds/. bundle/ancfds/
+          cp output/result.json bundle/meta/ancfds_result.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: guilin-20220824-ancfds
+          path: bundle/**
+          retention-days: 3
+
+  elite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/guilin-20220824-data
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 安装依赖
+        run: pip install requests numpy h5py pyhdf rasterio affine
+      - name: 获取ELITE FY-4B整日4km LST
+        run: |
+          python worker.py --start-date "$START_ISO" --end-date "$END_ISO" --bbox "$ROI" --region-name "$REGION" --output-unit celsius
+          mkdir -p bundle/elite bundle/meta
+          cp -a output/derived/. bundle/elite/
+          cp output/result.json bundle/meta/elite_result.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: guilin-20220824-elite
+          path: bundle/**
+          retention-days: 3
+
+  assemble:
+    needs: [ee_inputs, ancfds, elite]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/guilin-20220824-data
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: guilin-20220824-*
+          path: exports/guilin_20220824
+          merge-multiple: true
+      - name: 写入数据契约
+        run: |
+          cat > exports/guilin_20220824/DATA_CONTRACT.json <<'JSON'
+          {
+            "region": "Guilin",
+            "date": "2022-08-24",
+            "bbox_wgs84": [110.12447068021214, 24.99113120420509, 110.49277994670115, 25.341474165011704],
+            "elite": "ELITE FY-4B/AGRI hourly seamless 4 km LST, 24 UTC hours",
+            "ancfds": "ANCFDS-LST hourly 0.01 degree, band 2 T_nadir is the canonical Stage-2 parent",
+            "era5_land": "hourly, used only to construct permitted dynamic energy factors",
+            "landsat": "Landsat 8/9 C2 L2 raw-valid-pixel validation; QA mask is applied downstream",
+            "scaling_factors": "100 m terrain, WorldCover, Landsat spectral factors and MCD43A3 BSA/WSA",
+            "forbidden": ["T_hemi", "T2/TD2 as Stage-2 predictors", "wind/pressure as Stage-2 predictors", "lat/lon as Stage-2 predictors"]
+          }
+          JSON
+      - name: 回写独立数据分支
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add exports/guilin_20220824
+          git commit -m "data: prepare Guilin 2022-08-24 canonical ROI bundle"
+          git pull --rebase origin experiment/guilin-20220824-data
+          git push origin HEAD:experiment/guilin-20220824-data
