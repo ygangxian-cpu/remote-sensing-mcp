@@ -128,12 +128,25 @@ def main() -> None:
         nearby_start = target - timedelta(days=2)
         nearby_end = target + timedelta(days=3)
         nearby = query(nearby_start.isoformat(), nearby_end.isoformat(), cfg["bbox"])
+        wide_start = target - timedelta(days=90)
+        wide_end = target + timedelta(days=91)
+        wide = query(wide_start.isoformat(), wide_end.isoformat(), cfg["bbox"])
 
         day_counts = Counter()
         for entry in nearby["entries"]:
             ts = entry.get("time_start")
             if ts:
                 day_counts[str(ts)[:10]] += 1
+
+        wide_summaries = [summarize_entry(e) for e in wide["entries"]]
+        def scene_distance(scene: dict) -> float:
+            ts = scene.get("start_time")
+            if not ts:
+                return float("inf")
+            dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+            target_dt = datetime(target.year, target.month, target.day, tzinfo=timezone.utc)
+            return abs((dt - target_dt).total_seconds())
+        wide_summaries.sort(key=scene_distance)
 
         out["cases"][name] = {
             "target_date": cfg["date"],
@@ -145,6 +158,9 @@ def main() -> None:
             "nearby_hit_count": nearby["cmr_hits"],
             "nearby_hits_by_date": dict(sorted(day_counts.items())),
             "nearby_scenes": [summarize_entry(e) for e in nearby["entries"]],
+            "wide_window_days": 90,
+            "wide_hit_count": wide["cmr_hits"],
+            "nearest_scenes": wide_summaries[:10],
         }
 
     print(json.dumps(out, ensure_ascii=False, indent=2))
