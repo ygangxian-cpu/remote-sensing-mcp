@@ -24,7 +24,7 @@ from rasterio.transform import from_origin
 from rasterio.warp import reproject
 
 ZENODO_API = "https://zenodo.org/api"
-KNOWN_RECORDS = {2019: 10672052, 2021: 8378354}
+KNOWN_RECORDS = {2019: 10672052, 2021: 8378354, 2022: 14864342}
 
 COFF = LOFF = 1373.5
 CFAC = LFAC = 10233137.0
@@ -219,9 +219,18 @@ def read_lst(path: Path):
         h4.end()
 
 
-def src_crs() -> CRS:
+def satellite_for_ts(ts: datetime) -> tuple[str, float]:
+    # ELITE switches to FY-4B/AGRI for the 2022.6-2023.12 seamless 4 km product.
+    # FY-4B was located at 133.0E during 2022.
+    if ts >= datetime(2022, 6, 1):
+        return "FY4B", 133.0
+    return "FY4A", 104.7
+
+
+def src_crs(ts: datetime) -> CRS:
+    _, lon0 = satellite_for_ts(ts)
     return CRS.from_string(
-        "+proj=geos +lon_0=104.7 +h=35785863 +x_0=0 +y_0=0 "
+        f"+proj=geos +lon_0={lon0} +h=35785863 +x_0=0 +y_0=0 "
         "+a=6378137 +b=6356752.31414 +units=m +sweep=x +no_defs"
     )
 
@@ -266,6 +275,7 @@ def time_relevant_source_attrs(attrs: dict[str, Any]) -> dict[str, str]:
 
 
 def china_cache_path(ts: datetime) -> Path:
+    satellite, _ = satellite_for_ts(ts)
     return (
         Path("data")
         / "elite"
@@ -273,12 +283,13 @@ def china_cache_path(ts: datetime) -> Path:
         / f"{ts:%Y}"
         / f"{ts:%m}"
         / f"{ts:%d}"
-        / f"ELITE_FY4A_LST_{ts:%Y%m%d_%H%M}_CHINA_K.tif"
+        / f"ELITE_{satellite}_LST_{ts:%Y%m%d_%H%M}_CHINA_K.tif"
     )
 
 
 def write_china_cache(hdf_path: Path, out: Path, ts: datetime) -> dict[str, Any]:
     values, ds_name, source_attrs = lst_kelvin(hdf_path)
+    satellite, subpoint_lon = satellite_for_ts(ts)
     source_time_attrs = time_relevant_source_attrs(source_attrs)
     xmin, ymin, xmax, ymax = CHINA_BBOX
     width = max(1, math.ceil((xmax - xmin) / OUT_RES))
@@ -290,7 +301,7 @@ def write_china_cache(hdf_path: Path, out: Path, ts: datetime) -> dict[str, Any]
         source=values,
         destination=dest_kelvin,
         src_transform=src_transform(values.shape[1], values.shape[0]),
-        src_crs=src_crs(),
+        src_crs=src_crs(ts),
         src_nodata=np.nan,
         dst_transform=transform,
         dst_crs="EPSG:4326",
@@ -326,7 +337,7 @@ def write_china_cache(hdf_path: Path, out: Path, ts: datetime) -> dict[str, Any]
         blockysize=512,
     ) as dst:
         dst.write(scaled, 1)
-        dst.set_band_description(1, "ELITE_FY4A_AGRI_LST")
+        dst.set_band_description(1, f"ELITE_{satellite}_AGRI_LST")
         dst.update_tags(
             source_dataset=ds_name,
             source_time_label=ts.isoformat(),
@@ -337,7 +348,9 @@ def write_china_cache(hdf_path: Path, out: Path, ts: datetime) -> dict[str, Any]
             unit="kelvin",
             cache_extent="china",
             cache_bbox=",".join(str(x) for x in CHINA_BBOX),
-            source_grid="FY4A_AGRI_4KM_native_geostationary",
+            source_grid=f"{satellite}_AGRI_4KM_native_geostationary",
+            source_satellite=satellite,
+            sub_satellite_longitude_deg=str(subpoint_lon),
         )
 
     try:
@@ -392,6 +405,7 @@ def crop_china_cache(
     transform = from_origin(xmin, ymax, OUT_RES, OUT_RES)
     dest = np.full((height, width), FLOAT_NODATA, dtype="float32")
 
+    satellite = "FY4B" if "FY4B" in cache_path.name else "FY4A"
     with rasterio.open(cache_path) as src:
         raw = src.read(1)
         source = raw.astype("float32") * CACHE_SCALE
@@ -429,7 +443,7 @@ def crop_china_cache(
         tiled=True,
     ) as dst:
         dst.write(dest, 1)
-        dst.set_band_description(1, "ELITE_FY4A_AGRI_LST")
+        dst.set_band_description(1, f"ELITE_{satellite}_AGRI_LST")
         dst.update_tags(
             output_unit=output_unit,
             source_cache=str(cache_path),
@@ -463,7 +477,7 @@ def load_index(path: Path) -> dict[str, Any]:
         except (json.JSONDecodeError, OSError):
             pass
     return {
-        "product": "ELITE FY-4A/AGRI hourly 4 km seamless LST",
+        "product": "ELITE AGRI hourly 4 km seamless LST (FY-4A/FY-4B by acquisition date)",
         "storage": "GitHub repository China cache",
         "bbox": CHINA_BBOX,
         "crs": "EPSG:4326",
@@ -590,7 +604,8 @@ def main() -> None:
             raise RuntimeError(f"China cache was not produced: {cache}")
 
         suffix = "C" if args.output_unit == "celsius" else "K"
-        out = result_dir / f"ELITE_FY4A_LST_{ts:%Y%m%d_%H%M}_{suffix}.tif"
+        satellite, _ = satellite_for_ts(ts)
+        out = result_dir / f"ELITE_{satellite}_LST_{ts:%Y%m%d_%H%M}_{suffix}.tif"
         stats = crop_china_cache(cache, out, bbox, args.output_unit)
         outputs.append(
             {
@@ -601,7 +616,7 @@ def main() -> None:
         )
 
     result = {
-        "product": "ELITE FY-4A/AGRI hourly 4 km seamless LST",
+        "product": "ELITE AGRI hourly 4 km seamless LST (FY-4A/FY-4B by acquisition date)",
         "architecture": "Zenodo temporary archive -> GitHub China cache -> ROI artifact",
         "start_date": args.start_date,
         "end_date": args.end_date,
