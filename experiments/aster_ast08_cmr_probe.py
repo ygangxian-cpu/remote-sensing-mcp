@@ -7,6 +7,7 @@ from datetime import date, datetime, timedelta, timezone
 import requests
 
 CMR_URL = "https://cmr.earthdata.nasa.gov/search/granules.json"
+COLLECTIONS_URL = "https://cmr.earthdata.nasa.gov/search/collections.json"
 
 CASES = {
     "zhangye_20190924": {
@@ -20,13 +21,61 @@ CASES = {
 }
 
 
-def query(start: str, end: str, bbox: list[float]) -> dict:
+def collection_info() -> dict:
+    response = requests.get(
+        COLLECTIONS_URL,
+        params={"short_name": "AST_08", "version": "004", "page_size": 20},
+        headers={"Accept": "application/json", "User-Agent": "remote-sensing-mcp/aster-probe"},
+        timeout=60,
+    )
+    response.raise_for_status()
+    entries = ((response.json().get("feed") or {}).get("entry") or [])
+    return {
+        "cmr_hits": int(response.headers.get("CMR-Hits", len(entries))),
+        "entries": [
+            {
+                "id": e.get("id"),
+                "short_name": e.get("short_name"),
+                "version_id": e.get("version_id"),
+                "data_center": e.get("data_center"),
+                "dataset_id": e.get("dataset_id"),
+            }
+            for e in entries
+        ],
+    }
+
+
+def global_day_count(start: str, end: str, provider: str | None) -> dict:
+    params = {
+        "short_name": "AST_08",
+        "version": "004",
+        "temporal": f"{start}T00:00:00Z,{end}T00:00:00Z",
+        "page_size": 1,
+    }
+    if provider:
+        params["provider"] = provider
+    response = requests.get(
+        CMR_URL,
+        params=params,
+        headers={"Accept": "application/json", "User-Agent": "remote-sensing-mcp/aster-probe"},
+        timeout=60,
+    )
+    response.raise_for_status()
+    entries = ((response.json().get("feed") or {}).get("entry") or [])
+    return {
+        "provider_filter": provider,
+        "cmr_hits": int(response.headers.get("CMR-Hits", len(entries))),
+        "sample_titles": [e.get("title") for e in entries[:1]],
+    }
+
+
+def query(start: str, end: str, bbox: list[float], provider: str | None = "LPCLOUD") -> dict:
     response = requests.get(
         CMR_URL,
         params={
+            **({"provider": provider} if provider else {}),
             "short_name": "AST_08",
             "version": "004",
-            "provider": "LPCLOUD",
             "bounding_box": ",".join(str(x) for x in bbox),
             "temporal": f"{start}T00:00:00Z,{end}T00:00:00Z",
             "page_size": 200,
@@ -63,12 +112,19 @@ def main() -> None:
     out = {
         "checked_at_utc": datetime.now(timezone.utc).isoformat(),
         "product": "ASTER AST_08.004",
-        "provider": "LPCLOUD",
+        "collection_info": collection_info(),
+        "global_sanity": {
+            "2019-09-24_lpccloud": global_day_count("2019-09-24", "2019-09-25", "LPCLOUD"),
+            "2019-09-24_no_provider": global_day_count("2019-09-24", "2019-09-25", None),
+            "2022-08-24_lpccloud": global_day_count("2022-08-24", "2022-08-25", "LPCLOUD"),
+            "2022-08-24_no_provider": global_day_count("2022-08-24", "2022-08-25", None),
+        },
         "cases": {},
     }
     for name, cfg in CASES.items():
         target = date.fromisoformat(cfg["date"])
         exact = query(target.isoformat(), (target + timedelta(days=1)).isoformat(), cfg["bbox"])
+        exact_no_provider = query(target.isoformat(), (target + timedelta(days=1)).isoformat(), cfg["bbox"], None)
         nearby_start = target - timedelta(days=2)
         nearby_end = target + timedelta(days=3)
         nearby = query(nearby_start.isoformat(), nearby_end.isoformat(), cfg["bbox"])
@@ -83,6 +139,7 @@ def main() -> None:
             "target_date": cfg["date"],
             "bbox": cfg["bbox"],
             "exact_day_hit_count": exact["cmr_hits"],
+            "exact_day_hit_count_no_provider": exact_no_provider["cmr_hits"],
             "exact_day_scenes": [summarize_entry(e) for e in exact["entries"]],
             "nearby_window": [nearby_start.isoformat(), nearby_end.isoformat()],
             "nearby_hit_count": nearby["cmr_hits"],
