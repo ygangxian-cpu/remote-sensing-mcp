@@ -173,3 +173,13 @@ Each formal experiment should reference the exact Data Plane source/provenance t
   `data/tpdc_ancfds/v1/<region>-<bbox_hash>/YYYY/MM/DD/ANCFDS_FY4A_YYYYMMDD_HH00_<C|K>.tif`。
 - 单个 MCP Job 最多 24 个源小时，避免 Actions 下载规模失控；多日任务应拆分。
 - 2019-09-24 04:00 UTC 张掖正式 E2E 已通过，ROI 缓存已写入仓库。
+
+
+## ASTER AST_08 数据源
+
+- 已接入 NASA CMR 的 ASTER L2 Surface Kinetic Temperature（`AST_08.004`）场景检索。
+- AST_08 原生分辨率 90 m，单位 K，属于 on-demand 高级产品。
+- 正式 MCP 工具：`aster_ast08_schema`、`search_aster_ast08_scenes`、`plan_aster_ast08_order`。
+- CMR 场景检索无需 Earthdata 凭据；返回命中表示对应 ASTER 观测可用于 AST_08 按需处理，不代表成品 HDF 已经生成。
+- NASA 当前将 Earthdata Search 作为 ASTER 高级 on-demand 产品的正式下单入口；不要把 CMR 命中误写成“已下载”。
+- 若后续实现订单完成后的下载/裁剪，应保留源 granule id、观测时间、ROI、处理版本和订单 provenance，并避免把原始大 HDF 长期提交到 Git。
