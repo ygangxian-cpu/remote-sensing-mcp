@@ -1,0 +1,52 @@
+name: Temp run formal MODIS Landsat lag scan
+
+on:
+  push:
+    branches:
+      - experiment/formal-roi-modis-lagscan-data
+    paths:
+      - experiments/temp_modis_landsat_lagscan_formal.py
+      - .github/workflows/temp-run-formal-modis-lagscan.yml
+
+permissions:
+  contents: write
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout data branch
+        uses: actions/checkout@v4
+        with:
+          ref: experiment/formal-roi-modis-lagscan-data
+          fetch-depth: 1
+          persist-credentials: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install numpy pandas scipy rasterio matplotlib
+
+      - name: Run formal lag scan
+        run: python experiments/temp_modis_landsat_lagscan_formal.py
+
+      - name: Commit small formal results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add experiments/results/formal_modis_landsat_lagscan
+          if git diff --cached --quiet; then
+            echo "No result changes"
+          else
+            git commit -m "experiment: formal ROI MODIS Landsat lag-scan results [skip vercel]"
+            git push origin HEAD:experiment/formal-roi-modis-lagscan-data
+          fi
+
+      - name: Upload formal result artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: formal-modis-landsat-lagscan-results
+          path: experiments/results/formal_modis_landsat_lagscan/
+          retention-days: 7
