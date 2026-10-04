@@ -48,25 +48,25 @@ jobs:
       - name: Download prepared date bundle
         uses: actions/download-artifact@v4
         with:
-          name: landsat-multidate-2019-\${{ matrix.date }}
-          path: input/\${{ matrix.date }}
+          name: landsat-multidate-2019-${{ matrix.date }}
+          path: input/${{ matrix.date }}
           run-id: 37167651358
-          github-token: \${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run canonical SA-XGBoost
         env:
           SA_WORKERS: "2"
         run: |
           python experiments/sa_xgboost_multidate/run_sa_xgboost_multidate.py \
-            --data-root "input/\${{ matrix.date }}" \
-            --date "\${{ matrix.date }}" \
-            --output "results/\${{ matrix.date }}"
+            --data-root "input/${{ matrix.date }}" \
+            --date "${{ matrix.date }}" \
+            --output "results/${{ matrix.date }}"
 
       - name: Upload date result
         uses: actions/upload-artifact@v4
         with:
-          name: sa-xgboost-2019-\${{ matrix.date }}
-          path: results/\${{ matrix.date }}/
+          name: sa-xgboost-2019-${{ matrix.date }}
+          path: results/${{ matrix.date }}/
           if-no-files-found: error
           retention-days: 14
 
