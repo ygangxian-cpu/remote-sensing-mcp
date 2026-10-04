@@ -35,25 +35,13 @@ MAX_TIME_DIFF_MIN = 120.0
 
 OUT = Path("experiments/guilin_historical_matchups")
 WORK = Path("output/guilin_historical_matchups")
-TEMPLATE_URL = (
-    "https://raw.githubusercontent.com/yuyan3616/jiangchidu4kmto100m/"
-    "4a2fa30a007bda79b61b6cb28a20948746757322/"
-    "data_guilin_summer_20220925/Guilin_static_factors_1km.tif"
-)
+TEMPLATE_PATH = Path("experiments/guilin_historical_matchups/Guilin_static_factors_1km.tif")
 
 
 def download_template() -> Path:
-    WORK.mkdir(parents=True, exist_ok=True)
-    path = WORK / "Guilin_static_factors_1km.tif"
-    if path.exists():
-        return path
-    with requests.get(TEMPLATE_URL, stream=True, timeout=180) as r:
-        r.raise_for_status()
-        with path.open("wb") as f:
-            for chunk in r.iter_content(2 * 1024 * 1024):
-                if chunk:
-                    f.write(chunk)
-    return path
+    if not TEMPLATE_PATH.exists():
+        raise FileNotFoundError(f"Missing committed Guilin template: {TEMPLATE_PATH}")
+    return TEMPLATE_PATH
 
 
 def profile_dict(src: rasterio.io.DatasetReader) -> dict:
