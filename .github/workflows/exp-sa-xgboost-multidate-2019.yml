@@ -1,0 +1,132 @@
+name: EXP SA-XGBoost 2019 Multi-date
+
+on:
+  push:
+    branches:
+      - experiment/landsat-multidate-2019-data
+    paths:
+      - ".github/workflows/exp-sa-xgboost-multidate-2019.yml"
+      - "experiments/sa_xgboost_multidate/run_sa_xgboost_multidate.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  run-date:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        date:
+          - "2019-05-03"
+          - "2019-07-06"
+          - "2019-08-14"
+          - "2019-09-15"
+          - "2019-10-10"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/landsat-multidate-2019-data
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install science dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pandas scipy rasterio pyproj xgboost matplotlib
+
+      - name: Validate runner syntax
+        run: python -m py_compile experiments/sa_xgboost_multidate/run_sa_xgboost_multidate.py
+
+      - name: Download prepared date bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: landsat-multidate-2019-\${{ matrix.date }}
+          path: input/\${{ matrix.date }}
+          run-id: 37167651358
+          github-token: \${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run canonical SA-XGBoost
+        env:
+          SA_WORKERS: "2"
+        run: |
+          python experiments/sa_xgboost_multidate/run_sa_xgboost_multidate.py \
+            --data-root "input/\${{ matrix.date }}" \
+            --date "\${{ matrix.date }}" \
+            --output "results/\${{ matrix.date }}"
+
+      - name: Upload date result
+        uses: actions/upload-artifact@v4
+        with:
+          name: sa-xgboost-2019-\${{ matrix.date }}
+          path: results/\${{ matrix.date }}/
+          if-no-files-found: error
+          retention-days: 14
+
+  aggregate:
+    if: always()
+    needs: run-date
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download successful date results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: sa-xgboost-2019-*
+          path: all_results
+          merge-multiple: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build cross-date ranking
+        run: |
+          pip install pandas matplotlib
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import pandas as pd
+          import matplotlib.pyplot as plt
+
+          rows = []
+          for p in sorted(Path("all_results").rglob("metrics.json")):
+              rows.append(json.loads(p.read_text(encoding="utf-8")))
+          if not rows:
+              raise SystemExit("No completed date metrics available")
+
+          df = pd.DataFrame(rows)
+          df = df.sort_values(["r2", "rmse"], ascending=[False, True]).reset_index(drop=True)
+          df.insert(0, "rank", range(1, len(df)+1))
+          Path("summary").mkdir(exist_ok=True)
+          df.to_csv("summary/SA_XGBoost_2019_multidate_ranking.csv", index=False, encoding="utf-8-sig")
+          Path("summary/SA_XGBoost_2019_multidate_ranking.json").write_text(
+              df.to_json(orient="records", force_ascii=False, indent=2), encoding="utf-8"
+          )
+
+          fig, ax = plt.subplots(figsize=(9, 5))
+          ax.bar(df["date"], df["r2"])
+          ax.set_ylabel("R²")
+          ax.set_title("SA-XGBoost 2019 multi-date Landsat validation")
+          ax.tick_params(axis="x", rotation=30)
+          for i, v in enumerate(df["r2"]):
+              ax.text(i, v, f"{v:.3f}", ha="center", va="bottom", fontsize=9)
+          fig.tight_layout()
+          fig.savefig("summary/SA_XGBoost_2019_multidate_R2.png", dpi=220, bbox_inches="tight")
+          plt.close(fig)
+          print(df[["rank","date","r2","rmse","mae","bias","pearson_r","subpixel_anomaly_r"]].to_string(index=False))
+          PY
+
+      - name: Upload summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: sa-xgboost-2019-multidate-summary
+          path: summary/
+          if-no-files-found: error
+          retention-days: 14
