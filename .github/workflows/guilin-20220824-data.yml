@@ -1,4 +1,5 @@
 name: 桂林2022-08-24主流程数据准备
+# ELITE resolver revision: filename-first
 
 on:
   push:
