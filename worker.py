@@ -17,6 +17,7 @@ import rasterio
 import requests
 from affine import Affine
 from pyhdf.SD import SD, SDC
+from remotezip import RemoteZip
 from rasterio.crs import CRS
 from rasterio.enums import Resampling
 from rasterio.shutil import copy as rio_copy
@@ -588,20 +589,23 @@ def main() -> None:
         archive_name = f"{ym}.zip"
         payload = record_with_file(int(ym[:4]), archive_name)
         entry = file_entry(payload, archive_name)
-        archive = work_dir / "raw" / f"{ym}.zip"
-        download_http(entry["url"], archive, entry["size"], entry["checksum"])
+        # The monthly ELITE archive is ~2 GB. Zenodo supports HTTP byte ranges,
+        # so read the central directory remotely and extract only the requested
+        # hourly members instead of downloading the entire month.
+        remote_url = f"https://zenodo.org/records/{payload['id']}/files/{archive_name}?download=1"
         archive_downloads.append(
             {
                 "year_month": ym,
-                "source": "zenodo",
-                "size_bytes": archive.stat().st_size,
-                "temporary": True,
+                "source": "zenodo-http-range",
+                "archive_size_bytes": int(entry.get("size") or 0),
+                "remote_url": remote_url,
+                "temporary": False,
             }
         )
 
         wanted = set(missing_hours)
-        found: dict[datetime, zipfile.ZipInfo] = {}
-        with zipfile.ZipFile(archive) as zf:
+        found: dict[datetime, Any] = {}
+        with RemoteZip(remote_url) as zf:
             for info in zf.infolist():
                 if info.is_dir() or Path(info.filename).suffix.lower() not in {
                     ".hdf",
@@ -638,8 +642,6 @@ def main() -> None:
                 )
                 index["hours"][ts.isoformat()] = str(cache)
                 hdf.unlink(missing_ok=True)
-
-        archive.unlink(missing_ok=True)
 
     if cache_created:
         index["updated_at"] = datetime.utcnow().isoformat() + "Z"
