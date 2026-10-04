@@ -1,0 +1,99 @@
+from __future__ import annotations
+
+import json
+from collections import Counter
+from datetime import date, datetime, timedelta, timezone
+
+import requests
+
+CMR_URL = "https://cmr.earthdata.nasa.gov/search/granules.json"
+
+CASES = {
+    "zhangye_20190924": {
+        "date": "2019-09-24",
+        "bbox": [99.86, 38.67, 100.50, 39.43],
+    },
+    "guilin_20220824": {
+        "date": "2022-08-24",
+        "bbox": [110.12447068021214, 24.99113120420509, 110.49277994670115, 25.341474165011704],
+    },
+}
+
+
+def query(start: str, end: str, bbox: list[float]) -> dict:
+    response = requests.get(
+        CMR_URL,
+        params={
+            "short_name": "AST_08",
+            "version": "004",
+            "provider": "LPCLOUD",
+            "bounding_box": ",".join(str(x) for x in bbox),
+            "temporal": f"{start}T00:00:00Z,{end}T00:00:00Z",
+            "page_size": 200,
+        },
+        headers={
+            "Accept": "application/json",
+            "User-Agent": "remote-sensing-mcp/aster-probe",
+        },
+        timeout=60,
+    )
+    response.raise_for_status()
+    entries = ((response.json().get("feed") or {}).get("entry") or [])
+    return {
+        "cmr_hits": int(response.headers.get("CMR-Hits", len(entries))),
+        "entries": entries,
+    }
+
+
+def summarize_entry(entry: dict) -> dict:
+    return {
+        "concept_id": entry.get("id"),
+        "granule_ur": entry.get("title"),
+        "producer_granule_id": entry.get("producer_granule_id"),
+        "start_time": entry.get("time_start"),
+        "end_time": entry.get("time_end"),
+        "day_night_flag": entry.get("day_night_flag"),
+        "cloud_cover": entry.get("cloud_cover"),
+        "boxes": entry.get("boxes") or [],
+        "polygons": entry.get("polygons") or [],
+    }
+
+
+def main() -> None:
+    out = {
+        "checked_at_utc": datetime.now(timezone.utc).isoformat(),
+        "product": "ASTER AST_08.004",
+        "provider": "LPCLOUD",
+        "cases": {},
+    }
+    for name, cfg in CASES.items():
+        target = date.fromisoformat(cfg["date"])
+        exact = query(target.isoformat(), (target + timedelta(days=1)).isoformat(), cfg["bbox"])
+        nearby_start = target - timedelta(days=2)
+        nearby_end = target + timedelta(days=3)
+        nearby = query(nearby_start.isoformat(), nearby_end.isoformat(), cfg["bbox"])
+
+        day_counts = Counter()
+        for entry in nearby["entries"]:
+            ts = entry.get("time_start")
+            if ts:
+                day_counts[str(ts)[:10]] += 1
+
+        out["cases"][name] = {
+            "target_date": cfg["date"],
+            "bbox": cfg["bbox"],
+            "exact_day_hit_count": exact["cmr_hits"],
+            "exact_day_scenes": [summarize_entry(e) for e in exact["entries"]],
+            "nearby_window": [nearby_start.isoformat(), nearby_end.isoformat()],
+            "nearby_hit_count": nearby["cmr_hits"],
+            "nearby_hits_by_date": dict(sorted(day_counts.items())),
+            "nearby_scenes": [summarize_entry(e) for e in nearby["entries"]],
+        }
+
+    print(json.dumps(out, ensure_ascii=False, indent=2))
+    with open("aster_ast08_probe_result.json", "w", encoding="utf-8") as fp:
+        json.dump(out, fp, ensure_ascii=False, indent=2)
+
+
+if __name__ == "__main__":
+    main()
