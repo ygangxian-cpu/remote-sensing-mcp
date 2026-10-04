@@ -1,0 +1,42 @@
+{
+  "experiment": "Guilin historical Landsat-MODIS matchup acquisition",
+  "gee_project": "ee-ygangxian",
+  "target_date_excluded": "2022-09-25",
+  "historical_start": "2020-01-01",
+  "historical_end_exclusive": "2022-09-25",
+  "bbox": [
+    110.12447068021214,
+    24.99113120420509,
+    110.49277994670115,
+    25.341474165011704
+  ],
+  "candidate_dates": 20,
+  "usable_dates": 15,
+  "usable_date_list": [
+    "2020-02-16",
+    "2020-04-27",
+    "2020-05-06",
+    "2020-09-02",
+    "2021-01-01",
+    "2021-04-30",
+    "2021-07-28",
+    "2021-09-21",
+    "2021-10-07",
+    "2021-12-03",
+    "2022-03-08",
+    "2022-04-09",
+    "2022-05-03",
+    "2022-07-23",
+    "2022-08-24"
+  ],
+  "matchup_samples": 8389,
+  "landsat_metadata_cloud_max_percent": 60.0,
+  "landsat_min_clear_fraction_1km": 0.7,
+  "modis_min_strict_fraction_1km": 0.5,
+  "max_time_difference_minutes": 120.0,
+  "modis_product": "MODIS/061/MOD11A1 Terra daytime",
+  "modis_strict_qc": "bits0-1<=1; bits2-3==0; bits6-7<=2",
+  "landsat_clear_mask": "QA_PIXEL bits0-5 == 0; water retained",
+  "template_grid": "Guilin_static_factors_1km.tif from research repo main",
+  "note": "This file is acquisition/QC support for the cross-region experiment. The target date 2022-09-25 is excluded from calibration data."
+}
