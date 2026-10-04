@@ -101,6 +101,38 @@ output_unit: celsius
 ```
 
 
+## ASTER AST_08 90 m surface kinetic temperature
+
+Official ASTER Level-2 surface kinetic temperature is exposed through NASA's public CMR catalog:
+
+- short name: `AST_08`
+- version: `004`
+- provider: `LPCLOUD` / LP DAAC
+- native spatial resolution: 90 m
+- unit: Kelvin
+- production mode: on-demand
+
+MCP tools:
+
+- `aster_ast08_schema`
+- `search_aster_ast08_scenes`
+- `plan_aster_ast08_order`
+
+`search_aster_ast08_scenes` is a public, credential-free CMR query using a UTC time interval and WGS84 bbox. A returned scene means that an ASTER observation intersects the requested space/time and is selectable for AST_08 processing. It does **not** mean a ready-made AST_08 HDF has already been generated.
+
+NASA currently documents Earthdata Search as the supported ordering interface for on-demand higher-level ASTER products. Therefore this MCP integration deliberately separates **scene discovery** from **authenticated on-demand ordering** rather than pretending that a CMR match is an immediately downloadable file.
+
+Typical daily search:
+
+```text
+start_date: 2019-09-24
+end_date:   2019-09-25
+bbox:       [99.86, 38.67, 100.50, 39.43]
+```
+
+After the Earthdata order is processed, the generated AST_08 file can be used as a 90 m high-resolution LST reference and then cropped/reprojected to the experiment grid.
+
+
 ## ERA5-Land hourly ROI cache
 
 ERA5-Land is acquired from Google Earth Engine by a dedicated GitHub Actions worker.
