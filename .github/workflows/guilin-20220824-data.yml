@@ -1,5 +1,5 @@
 name: 桂林2022-08-24主流程数据准备
-# ELITE resolver revision: filename-first
+# ELITE source: FY-4A annual 2022 record (10595576), aligned with main
 
 on:
   push:
@@ -118,7 +118,7 @@ jobs:
           python-version: "3.12"
       - name: 安装依赖
         run: pip install requests numpy h5py pyhdf rasterio affine
-      - name: 获取ELITE FY-4B整日4km LST
+      - name: 获取ELITE FY-4A整日4km LST
         run: |
           python worker.py --start-date "$START_ISO" --end-date "$END_ISO" --bbox "$ROI" --region-name "$REGION" --output-unit celsius
           mkdir -p bundle/elite bundle/meta
@@ -150,7 +150,7 @@ jobs:
             "region": "Guilin",
             "date": "2022-08-24",
             "bbox_wgs84": [110.12447068021214, 24.99113120420509, 110.49277994670115, 25.341474165011704],
-            "elite": "ELITE FY-4B/AGRI hourly seamless 4 km LST, 24 UTC hours",
+            "elite": "ELITE FY-4A/AGRI hourly seamless 4 km LST from Zenodo record 10595576, 24 UTC hours",
             "ancfds": "ANCFDS-LST 2022-08-24 available source hours 00-15 and 23 UTC; band 2 T_nadir is the canonical Stage-2 parent. TPDC source is missing 16-22 UTC, which are not needed for the Guilin Landsat target/daylight fit.",
             "era5_land": "hourly, used only to construct permitted dynamic energy factors",
             "landsat": "Landsat 8/9 C2 L2 raw-valid-pixel validation; QA mask is applied downstream",
