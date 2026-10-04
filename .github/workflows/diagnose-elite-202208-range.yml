@@ -26,3 +26,7 @@ jobs:
                   }))
                   break
           PY
+          echo "--- RANGE PROBE ---"
+          curl -sS -L -D - -o /dev/null -H 'Range: bytes=0-0' \
+            'https://zenodo.org/records/10595576/files/202208.zip?download=1' \
+            | grep -Ei 'HTTP/|accept-ranges|content-range|content-length' || true
