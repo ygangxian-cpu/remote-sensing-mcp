@@ -1,0 +1,67 @@
+name: Guilin historical ANCFDS C3 inputs
+
+on:
+  push:
+    branches:
+      - experiment/guilin-20220824-data
+    paths:
+      - ".github/workflows/guilin-historical-ancfds-c3.yml"
+  workflow_dispatch:
+
+env:
+  ROI: "110.12447068021214,24.99113120420509,110.49277994670115,25.341474165011704"
+
+jobs:
+  ancfds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 14
+      matrix:
+        include:
+          - { key: d01, date: "2020-02-16", end: "2020-02-17" }
+          - { key: d02, date: "2020-04-27", end: "2020-04-28" }
+          - { key: d03, date: "2020-05-06", end: "2020-05-07" }
+          - { key: d04, date: "2020-09-02", end: "2020-09-03" }
+          - { key: d05, date: "2021-01-01", end: "2021-01-02" }
+          - { key: d06, date: "2021-04-30", end: "2021-05-01" }
+          - { key: d07, date: "2021-07-28", end: "2021-07-29" }
+          - { key: d08, date: "2021-09-21", end: "2021-09-22" }
+          - { key: d09, date: "2021-10-07", end: "2021-10-08" }
+          - { key: d10, date: "2021-12-03", end: "2021-12-04" }
+          - { key: d11, date: "2022-03-08", end: "2022-03-09" }
+          - { key: d12, date: "2022-04-09", end: "2022-04-10" }
+          - { key: d13, date: "2022-05-03", end: "2022-05-04" }
+          - { key: d14, date: "2022-07-23", end: "2022-07-24" }
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/guilin-20220824-data
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install requests numpy rasterio
+
+      - name: Fetch ANCFDS T_nadir source hour
+        run: |
+          python tpdc_ancfds_worker.py \
+            --start-date "${{ matrix.date }}" \
+            --end-date "${{ matrix.end }}" \
+            --bbox "$ROI" \
+            --region-name "guilin-c3-${{ matrix.date }}" \
+            --hours "3" \
+            --output-unit celsius
+          mkdir -p bundle
+          cp -a output/tpdc_ancfds/. bundle/
+          cp output/result.json bundle/result.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: guilin-c3-ancfds-${{ matrix.key }}-${{ matrix.date }}
+          path: bundle/**
+          retention-days: 3
