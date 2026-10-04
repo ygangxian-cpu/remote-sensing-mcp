@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        date: ["2019-05-19", "2019-07-22", "2019-10-26", "2019-12-13"]
+        date: ["2020-09-10"]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
