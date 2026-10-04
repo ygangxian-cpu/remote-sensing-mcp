@@ -1,0 +1,28 @@
+name: diagnose-elite-202208-range
+
+on:
+  push:
+    branches: [experiment/guilin-20220824-data]
+    paths: [".github/workflows/diagnose-elite-202208-range.yml"]
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect 202208.zip metadata and range support
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, urllib.request
+          d=json.load(urllib.request.urlopen("https://zenodo.org/api/records/10595576", timeout=30))
+          for f in d.get("files", []):
+              if f.get("key")=="202208.zip":
+                  print(json.dumps({
+                    "key": f.get("key"),
+                    "size": f.get("size"),
+                    "checksum": f.get("checksum"),
+                    "url": (f.get("links") or {}).get("content"),
+                  }))
+                  break
+          PY
