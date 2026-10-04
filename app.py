@@ -7,7 +7,7 @@ import re
 import time
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import ee
@@ -34,6 +34,10 @@ ERA5_LAND_BANDS = {
     "GLW_WM2": {"source": "surface_thermal_radiation_downwards_hourly", "unit": "W m-2"},
 }
 MODIS_L2_SWATH_PRODUCTS = {"terra": "MOD11_L2", "aqua": "MYD11_L2"}
+ASTER_AST08_SHORT_NAME = "AST_08"
+ASTER_AST08_VERSION = "004"
+ASTER_CMR_GRANULES_URL = "https://cmr.earthdata.nasa.gov/search/granules.json"
+ASTER_EARTHDATA_SEARCH_URL = "https://search.earthdata.nasa.gov/search?q=AST_08"
 
 DATASETS = {
     "era5_land_hourly": "ECMWF/ERA5_LAND/HOURLY",
@@ -50,7 +54,7 @@ DATASETS = {
 mcp = MCPServer(
     "Remote Sensing MCP",
     instructions=(
-        "Remote-sensing data gateway for ELITE FY-4A, TPDC ANCFDS-LST, ERA5-Land, MODIS, Landsat and scaling factors. "
+        "Remote-sensing data gateway for ELITE FY-4A, TPDC ANCFDS-LST, ERA5-Land, MODIS, Landsat, ASTER AST_08 and scaling factors. "
         "Heavy downloads are delegated to GitHub Actions. When the user asks to download data, do not "
         "stop after returning a job id or completed status: after the job succeeds, call get_job_result "
         "to obtain a short-lived artifact URL, then use the client environment to save the ZIP to the "
@@ -110,6 +114,127 @@ def _bbox_region(bbox: list[float]):
 
 def _resolve_dataset(dataset: str) -> str:
     return DATASETS.get(dataset, dataset)
+
+
+def _bbox_values(bbox: list[float]) -> list[float]:
+    if len(bbox) != 4:
+        raise ValueError("bbox must be [xmin, ymin, xmax, ymax]")
+    xmin, ymin, xmax, ymax = map(float, bbox)
+    if not (-180 <= xmin < xmax <= 180 and -90 <= ymin < ymax <= 90):
+        raise ValueError("Invalid WGS84 bbox")
+    return [xmin, ymin, xmax, ymax]
+
+
+def _cmr_utc(value: str) -> str:
+    raw = str(value).strip()
+    if re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}", raw):
+        datetime.fromisoformat(raw)
+        return f"{raw}T00:00:00Z"
+    parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    parsed = parsed.astimezone(timezone.utc)
+    return parsed.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _aster_ast08_search_payload(
+    start_date: str,
+    end_date: str,
+    bbox: list[float],
+    page_size: int = 100,
+) -> dict[str, Any]:
+    if not 1 <= int(page_size) <= 2000:
+        raise ValueError("page_size must be between 1 and 2000")
+    xmin, ymin, xmax, ymax = _bbox_values(bbox)
+    start_utc = _cmr_utc(start_date)
+    end_utc = _cmr_utc(end_date)
+    if datetime.fromisoformat(end_utc.replace("Z", "+00:00")) <= datetime.fromisoformat(
+        start_utc.replace("Z", "+00:00")
+    ):
+        raise ValueError("end_date must be after start_date")
+
+    response = requests.get(
+        ASTER_CMR_GRANULES_URL,
+        params={
+            "short_name": ASTER_AST08_SHORT_NAME,
+            "version": ASTER_AST08_VERSION,
+            "provider": "LPCLOUD",
+            "bounding_box": f"{xmin},{ymin},{xmax},{ymax}",
+            "temporal": f"{start_utc},{end_utc}",
+            "page_size": int(page_size),
+        },
+        headers={
+            "Accept": "application/json",
+            "User-Agent": "remote-sensing-mcp/aster-ast08",
+        },
+        timeout=45,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    entries = ((payload.get("feed") or {}).get("entry") or [])
+    scenes: list[dict[str, Any]] = []
+    for entry in entries:
+        links = []
+        direct_download_links = []
+        browse_links = []
+        for item in entry.get("links") or []:
+            href = item.get("href")
+            if not href:
+                continue
+            rel = str(item.get("rel") or "")
+            title = str(item.get("title") or "")
+            link = {
+                "href": href,
+                "title": title or None,
+                "rel": rel or None,
+                "type": item.get("type"),
+            }
+            links.append(link)
+            rel_lower = rel.lower()
+            title_lower = title.lower()
+            if "data#" in rel_lower or "get data" in title_lower or "download" in title_lower:
+                direct_download_links.append(href)
+            if "browse#" in rel_lower or "browse" in title_lower or "visualization" in rel_lower:
+                browse_links.append(href)
+        scenes.append(
+            {
+                "concept_id": entry.get("id"),
+                "granule_ur": entry.get("title"),
+                "producer_granule_id": entry.get("producer_granule_id"),
+                "start_time": entry.get("time_start"),
+                "end_time": entry.get("time_end"),
+                "day_night_flag": entry.get("day_night_flag"),
+                "cloud_cover": entry.get("cloud_cover"),
+                "boxes": entry.get("boxes") or [],
+                "polygons": entry.get("polygons") or [],
+                "direct_download_links": direct_download_links,
+                "browse_links": browse_links,
+                "links": links,
+            }
+        )
+    try:
+        total_hits = int(response.headers.get("CMR-Hits", len(scenes)))
+    except (TypeError, ValueError):
+        total_hits = len(scenes)
+    return {
+        "product": "ASTER L2 Surface Kinetic Temperature",
+        "short_name": ASTER_AST08_SHORT_NAME,
+        "version": ASTER_AST08_VERSION,
+        "provider": "LPCLOUD",
+        "start_date": start_utc,
+        "end_date": end_utc,
+        "bbox_wgs84": [xmin, ymin, xmax, ymax],
+        "total_hits": total_hits,
+        "returned": len(scenes),
+        "scenes": scenes,
+        "production_mode": "on-demand",
+        "availability_semantics": (
+            "A CMR match means an ASTER observation intersects the requested space/time and can "
+            "be selected for AST_08 on-demand processing. It does not guarantee that a ready-to-"
+            "download AST_08 file has already been materialized."
+        ),
+        "earthdata_search_url": ASTER_EARTHDATA_SEARCH_URL,
+    }
 
 
 def _zenodo_json(url: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -411,6 +536,74 @@ def get_job_result(job_key: str) -> dict[str, Any]:
 
 
 @mcp.tool()
+def aster_ast08_schema() -> dict[str, Any]:
+    """Describe official ASTER AST_08 Level-2 surface kinetic temperature access."""
+    return {
+        "product": "ASTER L2 Surface Kinetic Temperature",
+        "short_name": ASTER_AST08_SHORT_NAME,
+        "version": ASTER_AST08_VERSION,
+        "provider": "NASA LP DAAC / LPCLOUD",
+        "native_spatial_resolution": "90 m",
+        "unit": "kelvin",
+        "product_level": 2,
+        "production_mode": "on-demand",
+        "catalog": "NASA EOSDIS Common Metadata Repository (CMR)",
+        "catalog_search_requires_auth": False,
+        "order_requires_earthdata_login": True,
+        "order_interface": "NASA Earthdata Search",
+        "earthdata_search_url": ASTER_EARTHDATA_SEARCH_URL,
+        "note": (
+            "The MCP can discover orderable AST_08 scenes directly through public CMR. "
+            "NASA documents Earthdata Search as the ordering interface for on-demand higher-level "
+            "ASTER products, so this integration does not pretend that catalog hits are already "
+            "materialized downloads."
+        ),
+    }
+
+
+@mcp.tool()
+def search_aster_ast08_scenes(
+    start_date: str,
+    end_date: str,
+    bbox: list[float],
+    page_size: int = 100,
+) -> dict[str, Any]:
+    """Search ASTER AST_08 orderable scenes by UTC interval and WGS84 bbox using NASA CMR.
+
+    Use an exclusive end time/date for a clean daily query, for example
+    2019-09-24 to 2019-09-25 for the UTC day 2019-09-24.
+    """
+    return _aster_ast08_search_payload(start_date, end_date, bbox, page_size)
+
+
+@mcp.tool()
+def plan_aster_ast08_order(
+    start_date: str,
+    end_date: str,
+    bbox: list[float],
+    page_size: int = 100,
+) -> dict[str, Any]:
+    """Prepare an AST_08 Earthdata Search order plan for matching CMR scenes."""
+    result = _aster_ast08_search_payload(start_date, end_date, bbox, page_size)
+    return {
+        **result,
+        "automated_order_submitted": False,
+        "order_reason": (
+            "AST_08 is an on-demand higher-level ASTER product. NASA's supported ordering "
+            "workflow is Earthdata Search with an authenticated Earthdata Login session."
+        ),
+        "order_next_step": (
+            "Open earthdata_search_url, sign in to Earthdata, select AST_08, reapply the returned "
+            "space/time filter, select the matching granules, and submit the on-demand order."
+        ),
+        "post_order_note": (
+            "When NASA finishes processing, the order notification provides download links. "
+            "Those generated files can then be cropped/reprojected to the experiment ROI."
+        ),
+    }
+
+
+@mcp.tool()
 def service_status() -> dict[str, Any]:
     """Show which online capabilities are configured."""
     return {
@@ -433,6 +626,8 @@ def service_status() -> dict[str, Any]:
         "landsat_worker_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
         "tpdc_ancfds_worker_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
         "scaling_factors_worker_dispatch_configured": bool(os.getenv("GITHUB_WORKFLOW_TOKEN")),
+        "aster_ast08_cmr_search": True,
+        "aster_ast08_order_mode": "Earthdata Search on-demand",
         "era5_land_cache_backend": "github_repository_roi",
         "modis_lst_cache_backend": "github_repository_roi",
         "modis_lst_cache_version": "v2",
