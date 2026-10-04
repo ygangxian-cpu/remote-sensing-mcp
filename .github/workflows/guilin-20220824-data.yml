@@ -93,9 +93,9 @@ jobs:
           python-version: "3.12"
       - name: 安装依赖
         run: pip install requests numpy rasterio
-      - name: 获取ANCFDS整日T_nadir源文件
+      - name: 获取ANCFDS可用时次T_nadir源文件
         run: |
-          python tpdc_ancfds_worker.py --start-date "$START_DATE" --end-date "$END_DATE" --bbox "$ROI" --region-name "$REGION" --hours all --output-unit celsius
+          python tpdc_ancfds_worker.py --start-date "$START_DATE" --end-date "$END_DATE" --bbox "$ROI" --region-name "$REGION" --hours "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,23" --output-unit celsius
           mkdir -p bundle/ancfds bundle/meta
           cp -a output/tpdc_ancfds/. bundle/ancfds/
           cp output/result.json bundle/meta/ancfds_result.json
@@ -150,7 +150,7 @@ jobs:
             "date": "2022-08-24",
             "bbox_wgs84": [110.12447068021214, 24.99113120420509, 110.49277994670115, 25.341474165011704],
             "elite": "ELITE FY-4B/AGRI hourly seamless 4 km LST, 24 UTC hours",
-            "ancfds": "ANCFDS-LST hourly 0.01 degree, band 2 T_nadir is the canonical Stage-2 parent",
+            "ancfds": "ANCFDS-LST 2022-08-24 available source hours 00-15 and 23 UTC; band 2 T_nadir is the canonical Stage-2 parent. TPDC source is missing 16-22 UTC, which are not needed for the Guilin Landsat target/daylight fit.",
             "era5_land": "hourly, used only to construct permitted dynamic energy factors",
             "landsat": "Landsat 8/9 C2 L2 raw-valid-pixel validation; QA mask is applied downstream",
             "scaling_factors": "100 m terrain, WorldCover, Landsat spectral factors and MCD43A3 BSA/WSA",
