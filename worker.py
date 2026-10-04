@@ -132,6 +132,54 @@ def file_entry(payload: dict[str, Any], filename: str) -> dict[str, Any]:
     raise RuntimeError(f"{filename} not found in record {payload.get('id')}")
 
 
+def record_with_file(year: int, filename: str) -> dict[str, Any]:
+    """Resolve the Zenodo record that actually owns one monthly archive.
+
+    The FY-4B 2022.6-2023.12 release is published as multiple Zenodo records
+    sharing the same dataset title, with one YYYYMM.zip per record.  Therefore
+    a single hard-coded record id is not sufficient for arbitrary months.
+    """
+    primary = record(year)
+    try:
+        file_entry(primary, filename)
+        return primary
+    except RuntimeError:
+        pass
+
+    queries = [
+        f'FY-4B/AGRI hourly 4km seamless LST {year}',
+        'ELITE FY-4B AGRI seamless LST',
+        'ELITE land surface temperature FY-4B AGRI hourly 4km seamless LST',
+    ]
+    seen: set[int] = set()
+    for query in queries:
+        response = requests.get(
+            f"{ZENODO_API}/records",
+            params={"q": query, "size": 100, "sort": "mostrecent"},
+            timeout=90,
+        )
+        response.raise_for_status()
+        hits = ((response.json().get("hits") or {}).get("hits") or [])
+        for hit in hits:
+            rid = int(hit.get("id") or 0)
+            if rid in seen:
+                continue
+            seen.add(rid)
+            title = str((hit.get("metadata") or {}).get("title", "")).lower()
+            if "fy-4b/agri" not in title or "seamless lst" not in title:
+                continue
+            try:
+                file_entry(hit, filename)
+                return hit
+            except RuntimeError:
+                continue
+
+    raise RuntimeError(
+        f"{filename} was not found in any FY-4B ELITE seamless-LST Zenodo record "
+        f"(searched {len(seen)} records)."
+    )
+
+
 def download_http(url: str, path: Path, size: int = 0, checksum: str | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     existing = path.stat().st_size if path.exists() else 0
@@ -536,8 +584,9 @@ def main() -> None:
             missing_by_month.setdefault(f"{ts:%Y%m}", []).append(ts)
 
     for ym, missing_hours in sorted(missing_by_month.items()):
-        payload = record(int(ym[:4]))
-        entry = file_entry(payload, f"{ym}.zip")
+        archive_name = f"{ym}.zip"
+        payload = record_with_file(int(ym[:4]), archive_name)
+        entry = file_entry(payload, archive_name)
         archive = work_dir / "raw" / f"{ym}.zip"
         download_http(entry["url"], archive, entry["size"], entry["checksum"])
         archive_downloads.append(
