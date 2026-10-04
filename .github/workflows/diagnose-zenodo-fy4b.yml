@@ -1,0 +1,41 @@
+name: diagnose-fy4b-zenodo
+
+on:
+  push:
+    branches: [experiment/guilin-20220824-data]
+    paths: [".github/workflows/diagnose-zenodo-fy4b.yml"]
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Probe Zenodo records
+        run: |
+          python - <<'PY'
+          import requests
+          for q in [
+              "ELITE land surface temperature",
+              "ELITE AGRI seamless LST",
+              "land surface temperature AGRI hourly 4km seamless LST",
+              "202208",
+          ]:
+              r=requests.get("https://zenodo.org/api/records", params={"q":q,"size":100}, timeout=60)
+              print("QUERY",q,"STATUS",r.status_code)
+              if r.status_code != 200:
+                  print(r.text[:1000]); continue
+              data=r.json()
+              hits=(data.get("hits") or {}).get("hits") or []
+              print("COUNT",len(hits),"TOTAL",(data.get("hits") or {}).get("total"))
+              for h in hits[:100]:
+                  title=(h.get("metadata") or {}).get("title","")
+                  files=h.get("files") or {}
+                  entries=files.get("entries",files) if isinstance(files,dict) else files
+                  items=list(entries.values()) if isinstance(entries,dict) else list(entries or [])
+                  names=[str(x.get("key") or x.get("filename") or "") for x in items]
+                  if "ELITE" in title or any("202208" in n for n in names):
+                      print("HIT",h.get("id"),repr(title),names)
+          PY
