@@ -36,8 +36,9 @@ ERA5_LAND_BANDS = {
 MODIS_L2_SWATH_PRODUCTS = {"terra": "MOD11_L2", "aqua": "MYD11_L2"}
 ASTER_AST08_SHORT_NAME = "AST_08"
 ASTER_AST08_VERSION = "004"
+ASTER_AST08_COLLECTION_ID = "C3306885674-LPCLOUD"
 ASTER_CMR_GRANULES_URL = "https://cmr.earthdata.nasa.gov/search/granules.json"
-ASTER_EARTHDATA_SEARCH_URL = "https://search.earthdata.nasa.gov/search?q=AST_08"
+ASTER_EARTHDATA_SEARCH_URL = f"https://search.earthdata.nasa.gov/search/granules?p={ASTER_AST08_COLLECTION_ID}"
 
 DATASETS = {
     "era5_land_hourly": "ECMWF/ERA5_LAND/HOURLY",
@@ -142,9 +143,13 @@ def _aster_ast08_search_payload(
     end_date: str,
     bbox: list[float],
     page_size: int = 100,
+    day_night: str = "",
 ) -> dict[str, Any]:
-    if not 1 <= int(page_size) <= 2000:
-        raise ValueError("page_size must be between 1 and 2000")
+    if not 1 <= int(page_size) <= 200:
+        raise ValueError("page_size must be between 1 and 200")
+    day_night_normalized = str(day_night).strip().lower()
+    if day_night_normalized not in {"", "day", "night", "unspecified"}:
+        raise ValueError("day_night must be one of: '', day, night, unspecified")
     xmin, ymin, xmax, ymax = _bbox_values(bbox)
     start_utc = _cmr_utc(start_date)
     end_utc = _cmr_utc(end_date)
@@ -156,12 +161,11 @@ def _aster_ast08_search_payload(
     response = requests.get(
         ASTER_CMR_GRANULES_URL,
         params={
-            "short_name": ASTER_AST08_SHORT_NAME,
-            "version": ASTER_AST08_VERSION,
-            "provider": "LPCLOUD",
+            "collection_concept_id": ASTER_AST08_COLLECTION_ID,
             "bounding_box": f"{xmin},{ymin},{xmax},{ymax}",
             "temporal": f"{start_utc},{end_utc}",
             "page_size": int(page_size),
+            **({"day_night_flag": day_night_normalized} if day_night_normalized else {}),
         },
         headers={
             "Accept": "application/json",
@@ -209,7 +213,7 @@ def _aster_ast08_search_payload(
                 "polygons": entry.get("polygons") or [],
                 "direct_download_links": direct_download_links,
                 "browse_links": browse_links,
-                "links": links,
+                "links": links[:12],
             }
         )
     try:
@@ -221,9 +225,11 @@ def _aster_ast08_search_payload(
         "short_name": ASTER_AST08_SHORT_NAME,
         "version": ASTER_AST08_VERSION,
         "provider": "LPCLOUD",
+        "collection_concept_id": ASTER_AST08_COLLECTION_ID,
         "start_date": start_utc,
         "end_date": end_utc,
         "bbox_wgs84": [xmin, ymin, xmax, ymax],
+        "day_night_filter": day_night_normalized or None,
         "total_hits": total_hits,
         "returned": len(scenes),
         "scenes": scenes,
@@ -543,6 +549,7 @@ def aster_ast08_schema() -> dict[str, Any]:
         "short_name": ASTER_AST08_SHORT_NAME,
         "version": ASTER_AST08_VERSION,
         "provider": "NASA LP DAAC / LPCLOUD",
+        "collection_concept_id": ASTER_AST08_COLLECTION_ID,
         "native_spatial_resolution": "90 m",
         "unit": "kelvin",
         "product_level": 2,
@@ -567,13 +574,14 @@ def search_aster_ast08_scenes(
     end_date: str,
     bbox: list[float],
     page_size: int = 100,
+    day_night: str = "",
 ) -> dict[str, Any]:
     """Search ASTER AST_08 orderable scenes by UTC interval and WGS84 bbox using NASA CMR.
 
     Use an exclusive end time/date for a clean daily query, for example
     2019-09-24 to 2019-09-25 for the UTC day 2019-09-24.
     """
-    return _aster_ast08_search_payload(start_date, end_date, bbox, page_size)
+    return _aster_ast08_search_payload(start_date, end_date, bbox, page_size, day_night)
 
 
 @mcp.tool()
@@ -582,9 +590,10 @@ def plan_aster_ast08_order(
     end_date: str,
     bbox: list[float],
     page_size: int = 100,
+    day_night: str = "",
 ) -> dict[str, Any]:
     """Prepare an AST_08 Earthdata Search order plan for matching CMR scenes."""
-    result = _aster_ast08_search_payload(start_date, end_date, bbox, page_size)
+    result = _aster_ast08_search_payload(start_date, end_date, bbox, page_size, day_night)
     return {
         **result,
         "automated_order_submitted": False,
