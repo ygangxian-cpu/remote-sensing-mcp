@@ -29,7 +29,7 @@ jobs:
           mkdir -p "$OUT"
           tar -C "$SRC" -czf /tmp/guilin_20220824_inputs.tar.gz \
             DATA_CONTRACT.json ancfds elite era5 landsat scaling_factors
-          split -b 1M -d -a 3 /tmp/guilin_20220824_inputs.tar.gz "$OUT/guilin_inputs.part."
+          split -b 512K -d -a 3 /tmp/guilin_20220824_inputs.tar.gz "$OUT/guilin_inputs.part."
           sha256sum /tmp/guilin_20220824_inputs.tar.gz | awk '{print $1}' > "$OUT/SHA256.txt"
           stat -c '%s' /tmp/guilin_20220824_inputs.tar.gz > "$OUT/SIZE_BYTES.txt"
           ls -lh "$OUT"
