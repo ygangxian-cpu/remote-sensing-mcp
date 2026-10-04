@@ -1,0 +1,80 @@
+name: 桂林历史Landsat-MODIS配对样本
+
+on:
+  push:
+    branches:
+      - experiment/guilin-historical-matchups
+    paths:
+      - ".github/workflows/guilin-historical-matchups.yml"
+      - "experiments/guilin_historical_matchups.py"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  matchup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      EE_PROJECT: "${{ vars.EE_PROJECT || 'ee-ygangxian' }}"
+      EE_USER_CREDENTIALS_JSON_BASE64: "${{ secrets.EE_USER_CREDENTIALS_JSON_BASE64 }}"
+      EE_SERVICE_ACCOUNT_JSON_BASE64: "${{ secrets.EE_SERVICE_ACCOUNT_JSON_BASE64 }}"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/guilin-historical-matchups
+          fetch-depth: 0
+
+      - name: 恢复Earth Engine凭据
+        shell: bash
+        run: |
+          if [ -n "$EE_USER_CREDENTIALS_JSON_BASE64" ]; then
+            mkdir -p "$HOME/.config/earthengine"
+            printf '%s' "$EE_USER_CREDENTIALS_JSON_BASE64" | base64 --decode > "$HOME/.config/earthengine/credentials"
+            chmod 600 "$HOME/.config/earthengine/credentials"
+          elif [ -z "$EE_SERVICE_ACCOUNT_JSON_BASE64" ]; then
+            echo "::error::Missing Earth Engine credentials"
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install earthengine-api google-auth requests numpy pandas rasterio
+
+      - name: 构建历史配对样本
+        run: |
+          python -m py_compile experiments/guilin_historical_matchups.py
+          python experiments/guilin_historical_matchups.py
+
+      - name: 检查目标日未泄漏
+        run: |
+          test -f experiments/guilin_historical_matchups/guilin_landsat_modis_historical_matchups.csv
+          test -f experiments/guilin_historical_matchups/guilin_historical_matchups_summary.json
+          ! grep -q "2022-09-25" experiments/guilin_historical_matchups/guilin_landsat_modis_historical_matchups.csv
+
+      - name: 上传配对样本
+        uses: actions/upload-artifact@v4
+        with:
+          name: guilin-historical-landsat-modis-matchups
+          path: experiments/guilin_historical_matchups/**
+          retention-days: 30
+
+      - name: 回写实验分支
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add experiments/guilin_historical_matchups
+          if git diff --cached --quiet; then
+            echo "历史配对样本无变化"
+            exit 0
+          fi
+          git commit -m "data: 生成桂林历史Landsat-MODIS配对样本"
+          git pull --rebase origin experiment/guilin-historical-matchups
+          git push origin HEAD:experiment/guilin-historical-matchups
