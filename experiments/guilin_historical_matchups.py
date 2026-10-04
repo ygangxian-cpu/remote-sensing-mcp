@@ -36,7 +36,8 @@ MAX_TIME_DIFF_MIN = 120.0
 OUT = Path("experiments/guilin_historical_matchups")
 WORK = Path("output/guilin_historical_matchups")
 TEMPLATE_URL = (
-    "https://raw.githubusercontent.com/yuyan3616/jiangchidu4kmto100m/main/"
+    "https://raw.githubusercontent.com/yuyan3616/jiangchidu4kmto100m/"
+    "4a2fa30a007bda79b61b6cb28a20948746757322/"
     "data_guilin_summer_20220925/Guilin_static_factors_1km.tif"
 )
 
