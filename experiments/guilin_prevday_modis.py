@@ -23,30 +23,45 @@ def main() -> None:
     modis_worker.init_ee()
     OUT.mkdir(parents=True, exist_ok=True)
     day = datetime.fromisoformat(DATE)
-    out = OUT / "Guilin_MOD11A1_20220924_LST_QA.tif"
-    details = modis_worker.download_one("terra", day, BBOX, out)
-    if details is None:
-        raise RuntimeError("No Terra MOD11A1 scene found for 2022-09-24")
+    products = []
+    for platform, product in [("terra", "MOD11A1"), ("aqua", "MYD11A1")]:
+        out = OUT / f"Guilin_{product}_20220924_LST_QA.tif"
+        details = modis_worker.download_one(platform, day, BBOX, out)
+        if details is None:
+            products.append({
+                "platform": platform,
+                "product": product,
+                "status": "missing",
+            })
+            continue
 
-    with rasterio.open(out) as src:
-        desc = list(src.descriptions)
-        tags = src.tags()
-        shape = [src.height, src.width]
-        crs = str(src.crs)
-        bounds = list(src.bounds)
+        with rasterio.open(out) as src:
+            desc = list(src.descriptions)
+            tags = src.tags()
+            shape = [src.height, src.width]
+            crs = str(src.crs)
+            bounds = list(src.bounds)
+
+        products.append({
+            "platform": platform,
+            "product": product,
+            "status": "ok",
+            "file": str(out),
+            "descriptions": desc,
+            "shape": shape,
+            "crs": crs,
+            "bounds": bounds,
+            "tags": tags,
+            "details": details,
+        })
+
+    if not any(x.get("status") == "ok" for x in products):
+        raise RuntimeError("No Terra/Aqua daily MODIS LST found for 2022-09-24")
 
     summary = {
         "date": DATE,
-        "product": "MODIS/061/MOD11A1",
-        "platform": "terra",
         "bbox": BBOX,
-        "file": str(out),
-        "descriptions": desc,
-        "shape": shape,
-        "crs": crs,
-        "bounds": bounds,
-        "tags": tags,
-        "details": details,
+        "products": products,
     }
     (OUT / "summary.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2),
