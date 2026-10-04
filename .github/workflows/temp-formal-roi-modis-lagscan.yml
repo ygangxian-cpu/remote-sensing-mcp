@@ -1,0 +1,79 @@
+name: Temp formal ROI MODIS lag-scan data
+
+on:
+  push:
+    branches:
+      - experiment/formal-roi-modis-lagscan-data
+    paths:
+      - .github/workflows/temp-formal-roi-modis-lagscan.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temp-formal-roi-modis-lagscan-data
+  cancel-in-progress: false
+
+jobs:
+  modis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      EE_PROJECT: "${{ vars.EE_PROJECT || 'ee-ygangxian' }}"
+      EE_USER_CREDENTIALS_JSON_BASE64: "${{ secrets.EE_USER_CREDENTIALS_JSON_BASE64 }}"
+      EE_SERVICE_ACCOUNT_JSON_BASE64: "${{ secrets.EE_SERVICE_ACCOUNT_JSON_BASE64 }}"
+
+    steps:
+      - name: Checkout data branch
+        uses: actions/checkout@v4
+        with:
+          ref: experiment/formal-roi-modis-lagscan-data
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Restore Earth Engine credentials
+        shell: bash
+        run: |
+          if [ -n "$EE_USER_CREDENTIALS_JSON_BASE64" ]; then
+            mkdir -p "$HOME/.config/earthengine"
+            printf '%s' "$EE_USER_CREDENTIALS_JSON_BASE64" | base64 --decode > "$HOME/.config/earthengine/credentials"
+            chmod 600 "$HOME/.config/earthengine/credentials"
+          elif [ -z "$EE_SERVICE_ACCOUNT_JSON_BASE64" ]; then
+            echo "::error::Missing Earth Engine credentials"
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install earthengine-api google-auth requests numpy rasterio
+
+      - name: Fetch formal ROI MODIS v2 2019-09-15 through 2019-09-30
+        run: >-
+          python modis_worker.py
+          --start-date '2019-09-15'
+          --end-date '2019-10-01'
+          --bbox '99.86,38.67,100.50,39.43'
+          --region-name 'zhangye'
+          --platforms 'terra,aqua'
+
+      - name: Commit new cache to data branch
+        run: |
+          if [ -n "$(git status --porcelain -- data/modis_lst data/metadata/modis-lst-index.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/modis_lst data/metadata/modis-lst-index.json
+            git commit -m "data: cache formal ROI MODIS v2 lag scan [skip vercel]"
+            git push origin HEAD:experiment/formal-roi-modis-lagscan-data
+          fi
+
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: formal-roi-modis-v2-lagscan
+          path: |
+            output/modis_lst/**/*.tif
+            output/result.json
+          retention-days: 1
