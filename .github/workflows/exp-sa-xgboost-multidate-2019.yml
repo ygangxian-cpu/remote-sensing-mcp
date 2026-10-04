@@ -40,7 +40,7 @@ jobs:
       - name: Install science dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install numpy pandas scipy rasterio pyproj xgboost matplotlib
+          pip install numpy pandas scipy rasterio pyproj xgboost scikit-learn matplotlib
 
       - name: Validate runner syntax
         run: python -m py_compile experiments/sa_xgboost_multidate/run_sa_xgboost_multidate.py
