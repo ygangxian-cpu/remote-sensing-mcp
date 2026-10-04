@@ -24,7 +24,7 @@ from rasterio.transform import from_origin
 from rasterio.warp import reproject
 
 ZENODO_API = "https://zenodo.org/api"
-KNOWN_RECORDS = {2019: 10672052, 2021: 8378354, 2022: 14864342}
+KNOWN_RECORDS = {2019: 10672052, 2021: 8378354, 2022: 10595576}
 
 COFF = LOFF = 1373.5
 CFAC = LFAC = 10233137.0
@@ -270,10 +270,9 @@ def read_lst(path: Path):
 
 
 def satellite_for_ts(ts: datetime) -> tuple[str, float]:
-    # ELITE switches to FY-4B/AGRI for the 2022.6-2023.12 seamless 4 km product.
-    # FY-4B was located at 133.0E during 2022.
-    if ts >= datetime(2022, 6, 1):
-        return "FY4B", 133.0
+    # This experiment intentionally replays the current main pipeline with the
+    # FY-4A/AGRI ELITE series.  The 2022 FY-4A annual record (10595576)
+    # contains 202208.zip, so do not silently switch the Stage-1 parent to FY-4B.
     return "FY4A", 104.7
 
 
