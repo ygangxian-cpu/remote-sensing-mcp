@@ -1,0 +1,45 @@
+name: 打包桂林canonical输入交接包
+
+on:
+  push:
+    branches:
+      - experiment/guilin-20220824-data
+    paths:
+      - ".github/workflows/guilin-20220824-handoff-pack.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/guilin-20220824-data
+          fetch-depth: 0
+
+      - name: 打包canonical必要输入
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="exports/guilin_20220824"
+          OUT="handoff/guilin_20220824"
+          rm -rf "$OUT"
+          mkdir -p "$OUT"
+          tar -C "$SRC" -czf /tmp/guilin_20220824_inputs.tar.gz \
+            DATA_CONTRACT.json ancfds elite era5 landsat scaling_factors
+          split -b 1M -d -a 3 /tmp/guilin_20220824_inputs.tar.gz "$OUT/guilin_inputs.part."
+          sha256sum /tmp/guilin_20220824_inputs.tar.gz | awk '{print $1}' > "$OUT/SHA256.txt"
+          stat -c '%s' /tmp/guilin_20220824_inputs.tar.gz > "$OUT/SIZE_BYTES.txt"
+          ls -lh "$OUT"
+
+      - name: 回写交接分片
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add handoff/guilin_20220824
+          git commit -m "data: package Guilin 2022-08-24 canonical handoff" || exit 0
+          git push origin HEAD:experiment/guilin-20220824-data
