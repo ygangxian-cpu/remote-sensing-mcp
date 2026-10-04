@@ -147,7 +147,8 @@ def record_with_file(year: int, filename: str) -> dict[str, Any]:
         pass
 
     queries = [
-        f'FY-4B/AGRI hourly 4km seamless LST {year}',
+        filename,
+        f'ELITE FY-4B AGRI hourly 4km seamless LST {year}',
         'ELITE FY-4B AGRI seamless LST',
         'ELITE land surface temperature FY-4B AGRI hourly 4km seamless LST',
     ]
@@ -158,7 +159,8 @@ def record_with_file(year: int, filename: str) -> dict[str, Any]:
             params={"q": query, "size": 100, "sort": "mostrecent"},
             timeout=90,
         )
-        response.raise_for_status()
+        if response.status_code >= 400:
+            continue
         hits = ((response.json().get("hits") or {}).get("hits") or [])
         for hit in hits:
             rid = int(hit.get("id") or 0)
