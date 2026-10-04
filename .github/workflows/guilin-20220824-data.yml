@@ -86,7 +86,19 @@ jobs:
 
   ancfds:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - part: a
+            hours: "0,1,2"
+          - part: b
+            hours: "3,4,5"
+          - part: c
+            hours: "6,7,8"
+          - part: d
+            hours: "9,10"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -96,15 +108,15 @@ jobs:
           python-version: "3.12"
       - name: 安装依赖
         run: pip install requests numpy rasterio
-      - name: 获取ANCFDS可用时次T_nadir源文件
+      - name: 并行获取ANCFDS可用时次T_nadir源文件
         run: |
-          python tpdc_ancfds_worker.py --start-date "$START_DATE" --end-date "$END_DATE" --bbox "$ROI" --region-name "$REGION" --hours "0,1,2,3,4,5,6,7,8,9,10" --output-unit celsius
+          python tpdc_ancfds_worker.py --start-date "$START_DATE" --end-date "$END_DATE" --bbox "$ROI" --region-name "$REGION" --hours "${{ matrix.hours }}" --output-unit celsius
           mkdir -p bundle/ancfds bundle/meta
           cp -a output/tpdc_ancfds/. bundle/ancfds/
-          cp output/result.json bundle/meta/ancfds_result.json
+          cp output/result.json "bundle/meta/ancfds_result_${{ matrix.part }}.json"
       - uses: actions/upload-artifact@v4
         with:
-          name: guilin-20220824-ancfds
+          name: guilin-20220824-ancfds-${{ matrix.part }}
           path: bundle/**
           retention-days: 3
 
