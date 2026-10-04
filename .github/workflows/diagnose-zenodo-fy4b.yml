@@ -23,7 +23,7 @@ jobs:
               "land surface temperature AGRI hourly 4km seamless LST",
               "202208",
           ]:
-              url="https://zenodo.org/api/records?"+urllib.parse.urlencode({"q":q,"size":100})
+              url="https://zenodo.org/api/records?"+urllib.parse.urlencode({"q":q,"size":25})
               try:
                   with urllib.request.urlopen(url, timeout=60) as r:
                       status=r.status
