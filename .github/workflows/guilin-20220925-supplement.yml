@@ -1,0 +1,73 @@
+name: 桂林2022-09-25补充因子
+
+on:
+  push:
+    branches:
+      - experiment/guilin-20220925-supplement
+    paths:
+      - ".github/workflows/guilin-20220925-supplement.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  ROI: "110.12447068021214,24.99113120420509,110.49277994670115,25.341474165011704"
+  REGION: "guilin-20220925"
+  START_DATE: "2022-09-25"
+  END_DATE: "2022-09-26"
+  START_ISO: "2022-09-25T00:00:00"
+  END_ISO: "2022-09-26T00:00:00"
+
+jobs:
+  ee:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      EE_PROJECT: "${{ vars.EE_PROJECT || 'ee-ygangxian' }}"
+      EE_USER_CREDENTIALS_JSON_BASE64: "${{ secrets.EE_USER_CREDENTIALS_JSON_BASE64 }}"
+      EE_SERVICE_ACCOUNT_JSON_BASE64: "${{ secrets.EE_SERVICE_ACCOUNT_JSON_BASE64 }}"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/guilin-20220925-supplement
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 恢复Earth Engine认证
+        shell: bash
+        run: |
+          if [ -n "$EE_USER_CREDENTIALS_JSON_BASE64" ]; then
+            mkdir -p "$HOME/.config/earthengine"
+            printf '%s' "$EE_USER_CREDENTIALS_JSON_BASE64" | base64 --decode > "$HOME/.config/earthengine/credentials"
+            chmod 600 "$HOME/.config/earthengine/credentials"
+          elif [ -z "$EE_SERVICE_ACCOUNT_JSON_BASE64" ]; then
+            echo "::error::Missing Earth Engine credentials"
+            exit 1
+          fi
+
+      - name: 安装依赖
+        run: pip install earthengine-api google-auth requests numpy rasterio
+
+      - name: 获取ERA5-Land
+        run: |
+          python era5_worker.py --start-date "$START_ISO" --end-date "$END_ISO" --bbox "$ROI" --region-name "$REGION"
+          mkdir -p bundle/era5 bundle/meta
+          cp -a output/era5_land/. bundle/era5/
+          cp output/result.json bundle/meta/era5_result.json
+          rm -rf output
+
+      - name: 获取100m尺度因子与MCD43A3反照率
+        run: |
+          python scaling_factors_worker.py --start-date "$START_DATE" --end-date "$END_DATE" --bbox "$ROI" --region-name "$REGION"
+          mkdir -p bundle/scaling_factors bundle/meta
+          cp -a output/scaling_factors/. bundle/scaling_factors/
+          cp output/result.json bundle/meta/scaling_factors_result.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: guilin-20220925-supplement
+          path: bundle/**
+          retention-days: 3
