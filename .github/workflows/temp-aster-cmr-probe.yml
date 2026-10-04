@@ -1,13 +1,6 @@
 name: temp-aster-cmr-probe
 
 on:
-  push:
-    branches:
-      - feature/aster-ast08-lst
-    paths:
-      - ".github/workflows/temp-aster-cmr-probe.yml"
-      - "experiments/aster_ast08_cmr_probe.py"
-      - "app.py"
   workflow_dispatch:
 
 jobs:
