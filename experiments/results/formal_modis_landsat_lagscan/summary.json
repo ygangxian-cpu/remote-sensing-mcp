@@ -1,0 +1,84 @@
+{
+  "experiment": "formal_modis_lag1_vs_landsat_correlation",
+  "target_landsat_date": "2019-09-24",
+  "roi": [
+    99.86,
+    38.67,
+    100.5,
+    39.43
+  ],
+  "modis_products": [
+    "MOD11A1.061",
+    "MYD11A1.061"
+  ],
+  "modis_cache_version": "v2",
+  "modis_qc": "bits0-1<=1; bits2-3==0; bits6-7<=2",
+  "landsat_product": "LC08_L2SP_133033_20190924_20200826_02_T1_L2_LST_QA.tif",
+  "landsat_clear_mask": "QA_PIXEL bits 0,1,2,3,4,5 == 0; water retained",
+  "landsat_1km_aggregation": "Average clear 30 m Landsat LST into each platform's D0 MODIS 1 km grid; retain cells with clear fraction >= 0.80.",
+  "primary_test": "D-1 vs D0 compared on identical common valid cells for each platform. Primary statistic is spatial Pearson r; Spearman rho is secondary.",
+  "grid_summary": {
+    "terra": {
+      "grid_width": 72,
+      "grid_height": 86,
+      "grid_crs": "EPSG:4326",
+      "landsat_cells_meeting_clear_fraction": 6052,
+      "landsat_grid_cells_total": 6192,
+      "landsat_clear_fraction_min": 0.8,
+      "landsat_mean_clear_fraction_over_retained": 0.9989011883735657
+    },
+    "aqua": {
+      "grid_width": 72,
+      "grid_height": 86,
+      "grid_crs": "EPSG:4326",
+      "landsat_cells_meeting_clear_fraction": 6052,
+      "landsat_grid_cells_total": 6192,
+      "landsat_clear_fraction_min": 0.8,
+      "landsat_mean_clear_fraction_over_retained": 0.9989011883735657
+    }
+  },
+  "primary_Dminus1_vs_D0": {
+    "terra": {
+      "common_valid_pixels": 6052,
+      "pearson_r_Dminus1": 0.9502978583255469,
+      "pearson_r_D0": 0.8540567955686248,
+      "delta_pearson_r_Dminus1_minus_D0": 0.09624106275692212,
+      "spearman_rho_Dminus1": 0.9518057900491339,
+      "spearman_rho_D0": 0.8408961421741837,
+      "delta_spearman_Dminus1_minus_D0": 0.11090964787495017,
+      "rmse_Dminus1_c": 2.794185485168748,
+      "rmse_D0_c": 4.681199586350496,
+      "bias_Dminus1_c": -2.183930558080478,
+      "bias_D0_c": -3.1245716489551087,
+      "Dminus1_has_higher_pearson": true
+    },
+    "aqua": {
+      "common_valid_pixels": 6028,
+      "pearson_r_Dminus1": 0.9016732305553702,
+      "pearson_r_D0": 0.9239862945353825,
+      "delta_pearson_r_Dminus1_minus_D0": -0.022313063980012315,
+      "spearman_rho_Dminus1": 0.8906771541167174,
+      "spearman_rho_D0": 0.9299447693016459,
+      "delta_spearman_Dminus1_minus_D0": -0.039267615184928495,
+      "rmse_Dminus1_c": 2.8744111219767996,
+      "rmse_D0_c": 2.687474914459485,
+      "bias_Dminus1_c": -0.998274528038921,
+      "bias_D0_c": 1.1734308395942632,
+      "Dminus1_has_higher_pearson": false
+    }
+  },
+  "best_pairwise_lag_by_platform": {
+    "aqua": {
+      "modis_date": "2019-09-26",
+      "lag_days": 2,
+      "pearson_r": 0.9380081008007003,
+      "n": 6052
+    },
+    "terra": {
+      "modis_date": "2019-09-25",
+      "lag_days": 1,
+      "pearson_r": 0.953792952160974,
+      "n": 6052
+    }
+  }
+}
