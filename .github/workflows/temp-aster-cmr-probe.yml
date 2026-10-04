@@ -1,0 +1,37 @@
+name: temp-aster-cmr-probe
+
+on:
+  push:
+    branches:
+      - feature/aster-ast08-lst
+    paths:
+      - ".github/workflows/temp-aster-cmr-probe.yml"
+      - "experiments/aster_ast08_cmr_probe.py"
+      - "app.py"
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python syntax check
+        run: python -m py_compile app.py experiments/aster_ast08_cmr_probe.py
+
+      - name: Install probe dependency
+        run: python -m pip install "requests>=2.32,<3"
+
+      - name: Query NASA CMR
+        run: python experiments/aster_ast08_cmr_probe.py
+
+      - name: Upload probe result
+        uses: actions/upload-artifact@v4
+        with:
+          name: aster-ast08-cmr-probe
+          path: aster_ast08_probe_result.json
+          retention-days: 7
