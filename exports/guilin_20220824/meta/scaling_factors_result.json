@@ -1,0 +1,228 @@
+{
+  "product": "LST downscaling scaling-factor library",
+  "project": "ee-ygangxian",
+  "region_name": "guilin-20220824",
+  "region_id": "guilin-20220824-30cdb131cf",
+  "bbox": [
+    110.12447068021214,
+    24.99113120420509,
+    110.49277994670115,
+    25.341474165011704
+  ],
+  "start_date": "2022-08-24",
+  "end_date": "2022-08-25",
+  "target_surface_scale_m": 100,
+  "albedo_scale_m": 500,
+  "cache_hits": 0,
+  "cache_created": 4,
+  "terrain": "data/scaling_factors/v1/guilin-20220824-30cdb131cf/static/SRTM_TERRAIN_100M.tif",
+  "landcover": {
+    "path": "data/scaling_factors/v1/guilin-20220824-30cdb131cf/static/WORLDCOVER_2021_100M.tif",
+    "reference_year": 2021,
+    "note": "quasi-static factor; not temporally synchronous with 2019 experiment"
+  },
+  "surface_factors": {
+    "path": "data/scaling_factors/v1/guilin-20220824-30cdb131cf/surface/20220824_20220824/LANDSAT_SCALING_FACTORS_100M.tif",
+    "bands": [
+      "BLUE",
+      "GREEN",
+      "RED",
+      "NIR",
+      "SWIR1",
+      "SWIR2",
+      "NDVI",
+      "EVI",
+      "FVC",
+      "MNDWI",
+      "NDBI",
+      "BSI",
+      "NDMI"
+    ],
+    "source": [
+      "LANDSAT/LC08/C02/T1_L2",
+      "LANDSAT/LC09/C02/T1_L2"
+    ],
+    "composite": "median over requested period"
+  },
+  "albedo": {
+    "dataset": "MODIS/061/MCD43A3",
+    "bands": [
+      "BSA_SHORTWAVE",
+      "WSA_SHORTWAVE",
+      "ALBEDO_QA"
+    ],
+    "files": [
+      "data/scaling_factors/v1/guilin-20220824-30cdb131cf/albedo/2022/08/24/MCD43A3_20220824_BSA_WSA_QC.tif"
+    ],
+    "missing_dates": [],
+    "blue_sky_albedo_computed": false
+  },
+  "details": {
+    "terrain": {
+      "path": "data/scaling_factors/v1/guilin-20220824-30cdb131cf/static/SRTM_TERRAIN_100M.tif",
+      "size_bytes": 571814,
+      "width": 411,
+      "height": 390,
+      "crs": "EPSG:4326",
+      "stats": {
+        "DEM_M": {
+          "valid_pixels": 160290,
+          "min": 119.0,
+          "max": 879.0,
+          "mean": 210.46588134765625
+        },
+        "SLOPE_DEG": {
+          "valid_pixels": 160290,
+          "min": 0.0,
+          "max": 57.0,
+          "mean": 8.25195598602295
+        },
+        "ASPECT_DEG": {
+          "valid_pixels": 160290,
+          "min": 0.0,
+          "max": 359.0,
+          "mean": 173.6584014892578
+        }
+      }
+    },
+    "worldcover": {
+      "path": "data/scaling_factors/v1/guilin-20220824-30cdb131cf/static/WORLDCOVER_2021_100M.tif",
+      "size_bytes": 38253,
+      "width": 411,
+      "height": 390,
+      "crs": "EPSG:4326",
+      "class_counts": {
+        "10": 91026,
+        "20": 1,
+        "30": 13374,
+        "40": 32878,
+        "50": 19391,
+        "60": 1406,
+        "80": 2214
+      }
+    },
+    "surface": {
+      "path": "data/scaling_factors/v1/guilin-20220824-30cdb131cf/surface/20220824_20220824/LANDSAT_SCALING_FACTORS_100M.tif",
+      "size_bytes": 65240,
+      "width": 411,
+      "height": 390,
+      "crs": "EPSG:4326",
+      "stats": {
+        "BLUE": {
+          "valid_pixels": 160290,
+          "min": 0.03198464587330818,
+          "max": 0.03306093439459801,
+          "mean": 0.032522790133953094
+        },
+        "GREEN": {
+          "valid_pixels": 160290,
+          "min": 0.05435426905751228,
+          "max": 0.05467139184474945,
+          "mean": 0.05451282858848572
+        },
+        "RED": {
+          "valid_pixels": 160290,
+          "min": 0.03871184587478638,
+          "max": 0.03879833221435547,
+          "mean": 0.03875508904457092
+        },
+        "NIR": {
+          "valid_pixels": 160290,
+          "min": 0.3087351322174072,
+          "max": 0.3150583505630493,
+          "mean": 0.31189674139022827
+        },
+        "SWIR1": {
+          "valid_pixels": 160290,
+          "min": 0.172925665974617,
+          "max": 0.18498589098453522,
+          "mean": 0.1789557784795761
+        },
+        "SWIR2": {
+          "valid_pixels": 160290,
+          "min": 0.07431358098983765,
+          "max": 0.07969021797180176,
+          "mean": 0.0770018994808197
+        },
+        "NDVI": {
+          "valid_pixels": 160290,
+          "min": 0.7765563130378723,
+          "max": 0.781059980392456,
+          "mean": 0.7788081169128418
+        },
+        "EVI": {
+          "valid_pixels": 160290,
+          "min": 0.5215412378311157,
+          "max": 0.5283306837081909,
+          "mean": 0.5249359607696533
+        },
+        "FVC": {
+          "valid_pixels": 160290,
+          "min": 0.8920516967773438,
+          "max": 0.9002950191497803,
+          "mean": 0.896173357963562
+        },
+        "MNDWI": {
+          "valid_pixels": 160290,
+          "min": -0.5443132519721985,
+          "max": -0.516656756401062,
+          "mean": -0.5304850339889526
+        },
+        "NDBI": {
+          "valid_pixels": 160290,
+          "min": -0.28373393416404724,
+          "max": -0.2610355615615845,
+          "mean": -0.27238473296165466
+        },
+        "BSI": {
+          "valid_pixels": 160290,
+          "min": -0.23623067140579224,
+          "max": -0.2167576551437378,
+          "mean": -0.22649416327476501
+        },
+        "NDMI": {
+          "valid_pixels": 160290,
+          "min": 0.2610355615615845,
+          "max": 0.28373393416404724,
+          "mean": 0.27238473296165466
+        }
+      },
+      "scene_count": 2,
+      "scene_ids": [
+        "LC09_L2SP_124042_20220824_20230401_02_T1",
+        "LC09_L2SP_124043_20220824_20230401_02_T1"
+      ],
+      "fvc_ndvi_soil": 0.28918870600546553,
+      "fvc_ndvi_veg": 0.8355332981362329
+    },
+    "albedo": {
+      "2022-08-24": {
+        "path": "data/scaling_factors/v1/guilin-20220824-30cdb131cf/albedo/2022/08/24/MCD43A3_20220824_BSA_WSA_QC.tif",
+        "size_bytes": 33021,
+        "width": 82,
+        "height": 78,
+        "crs": "EPSG:4326",
+        "stats": {
+          "BSA_SHORTWAVE": {
+            "valid_pixels": 2805,
+            "min": 0.06300000101327896,
+            "max": 0.18299999833106995,
+            "mean": 0.12153582274913788
+          },
+          "WSA_SHORTWAVE": {
+            "valid_pixels": 2805,
+            "min": 0.06499999761581421,
+            "max": 0.20800000429153442,
+            "mean": 0.13537611067295074
+          },
+          "ALBEDO_QA": {
+            "valid_pixels": 2805,
+            "min": 1.0,
+            "max": 1.0,
+            "mean": 1.0
+          }
+        }
+      }
+    }
+  }
+}

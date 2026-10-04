@@ -1,0 +1,1787 @@
+{
+  "product": "ERA5-Land hourly",
+  "dataset": "ECMWF/ERA5_LAND/HOURLY",
+  "project": "ee-ygangxian",
+  "start_date": "2022-08-24T00:00:00",
+  "end_date": "2022-08-25T00:00:00",
+  "timezone": "UTC",
+  "region_name": "guilin-20220824",
+  "region_id": "guilin-20220824-30cdb131cf",
+  "bbox": [
+    110.12447068021214,
+    24.99113120420509,
+    110.49277994670115,
+    25.341474165011704
+  ],
+  "hours_requested": 24,
+  "cache_hits": 0,
+  "cache_created": 24,
+  "cache_root": "data/era5_land/v1/guilin-20220824-30cdb131cf",
+  "bands": [
+    {
+      "name": "T2_C",
+      "source": "temperature_2m",
+      "unit": "degC"
+    },
+    {
+      "name": "TD2_C",
+      "source": "dewpoint_temperature_2m",
+      "unit": "degC"
+    },
+    {
+      "name": "U10_MPS",
+      "source": "u_component_of_wind_10m",
+      "unit": "m s-1"
+    },
+    {
+      "name": "V10_MPS",
+      "source": "v_component_of_wind_10m",
+      "unit": "m s-1"
+    },
+    {
+      "name": "PSFC_PA",
+      "source": "surface_pressure",
+      "unit": "Pa"
+    },
+    {
+      "name": "SWDOWN_WM2",
+      "source": "surface_solar_radiation_downwards_hourly",
+      "unit": "W m-2"
+    },
+    {
+      "name": "GLW_WM2",
+      "source": "surface_thermal_radiation_downwards_hourly",
+      "unit": "W m-2"
+    }
+  ],
+  "files": [
+    {
+      "timestamp_utc": "2022-08-24T00:00:00",
+      "cache_path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_0000_UTC.tif",
+      "artifact_path": "output/era5_land/guilin-20220824-30cdb131cf/ERA5LAND_20220824_0000_UTC.tif",
+      "cache_created": true,
+      "details": {
+        "path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_0000_UTC.tif",
+        "size_bytes": 3433,
+        "width": 4,
+        "height": 5,
+        "crs": "EPSG:4326",
+        "transform": [
+          0.10000045742818513,
+          0.0,
+          110.10050362843182,
+          0.0,
+          -0.10000045742818513,
+          25.40011618675902
+        ],
+        "stats": {
+          "T2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 27.80449867248535,
+            "max": 29.79082679748535,
+            "mean": 29.0078182220459
+          },
+          "TD2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 23.105554580688477,
+            "max": 24.613367080688477,
+            "mean": 23.853992462158203
+          },
+          "U10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -0.501007080078125,
+            "max": 0.661102294921875,
+            "mean": 0.16705933213233948
+          },
+          "V10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.0334320068359375,
+            "max": -0.2707366943359375,
+            "mean": -0.6191253662109375
+          },
+          "PSFC_PA": {
+            "unit": "Pa",
+            "valid_pixels": 20,
+            "min": 95125.921875,
+            "max": 98062.921875,
+            "mean": 96987.015625
+          },
+          "SWDOWN_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 135.7022247314453,
+            "max": 153.00889587402344,
+            "mean": 145.6704864501953
+          },
+          "GLW_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 421.79278564453125,
+            "max": 434.2516784667969,
+            "mean": 428.88232421875
+          }
+        }
+      }
+    },
+    {
+      "timestamp_utc": "2022-08-24T01:00:00",
+      "cache_path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_0100_UTC.tif",
+      "artifact_path": "output/era5_land/guilin-20220824-30cdb131cf/ERA5LAND_20220824_0100_UTC.tif",
+      "cache_created": true,
+      "details": {
+        "path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_0100_UTC.tif",
+        "size_bytes": 3421,
+        "width": 4,
+        "height": 5,
+        "crs": "EPSG:4326",
+        "transform": [
+          0.10000045742818513,
+          0.0,
+          110.10050362843182,
+          0.0,
+          -0.10000045742818513,
+          25.40011618675902
+        ],
+        "stats": {
+          "T2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 29.5539493560791,
+            "max": 31.7375431060791,
+            "mean": 30.93207359313965
+          },
+          "TD2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 22.77402687072754,
+            "max": 24.10215187072754,
+            "mean": 23.41474723815918
+          },
+          "U10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.0052032470703125,
+            "max": 0.8365936279296875,
+            "mean": 0.10378112643957138
+          },
+          "V10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.57781982421875,
+            "max": -0.63836669921875,
+            "mean": -1.068884253501892
+          },
+          "PSFC_PA": {
+            "unit": "Pa",
+            "valid_pixels": 20,
+            "min": 95162.0390625,
+            "max": 98088.0390625,
+            "mean": 97019.734375
+          },
+          "SWDOWN_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 306.103271484375,
+            "max": 347.9141540527344,
+            "mean": 327.82476806640625
+          },
+          "GLW_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 424.5928955078125,
+            "max": 437.6038818359375,
+            "mean": 432.22723388671875
+          }
+        }
+      }
+    },
+    {
+      "timestamp_utc": "2022-08-24T02:00:00",
+      "cache_path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_0200_UTC.tif",
+      "artifact_path": "output/era5_land/guilin-20220824-30cdb131cf/ERA5LAND_20220824_0200_UTC.tif",
+      "cache_created": true,
+      "details": {
+        "path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_0200_UTC.tif",
+        "size_bytes": 3431,
+        "width": 4,
+        "height": 5,
+        "crs": "EPSG:4326",
+        "transform": [
+          0.10000045742818513,
+          0.0,
+          110.10050362843182,
+          0.0,
+          -0.10000045742818513,
+          25.40011618675902
+        ],
+        "stats": {
+          "T2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 31.181482315063477,
+            "max": 33.384605407714844,
+            "mean": 32.495147705078125
+          },
+          "TD2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 22.41936683654785,
+            "max": 23.41741371154785,
+            "mean": 22.846906661987305
+          },
+          "U10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.785186767578125,
+            "max": 0.454071044921875,
+            "mean": -0.5643371343612671
+          },
+          "V10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -2.1030263900756836,
+            "max": -1.4116201400756836,
+            "mean": -1.7757316827774048
+          },
+          "PSFC_PA": {
+            "unit": "Pa",
+            "valid_pixels": 20,
+            "min": 95169.34375,
+            "max": 98090.34375,
+            "mean": 97024.3984375
+          },
+          "SWDOWN_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 515.0732421875,
+            "max": 533.2330322265625,
+            "mean": 522.3018798828125
+          },
+          "GLW_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 437.3695983886719,
+            "max": 448.3659973144531,
+            "mean": 444.2083435058594
+          }
+        }
+      }
+    },
+    {
+      "timestamp_utc": "2022-08-24T03:00:00",
+      "cache_path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_0300_UTC.tif",
+      "artifact_path": "output/era5_land/guilin-20220824-30cdb131cf/ERA5LAND_20220824_0300_UTC.tif",
+      "cache_created": true,
+      "details": {
+        "path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_0300_UTC.tif",
+        "size_bytes": 3425,
+        "width": 4,
+        "height": 5,
+        "crs": "EPSG:4326",
+        "transform": [
+          0.10000045742818513,
+          0.0,
+          110.10050362843182,
+          0.0,
+          -0.10000045742818513,
+          25.40011618675902
+        ],
+        "stats": {
+          "T2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 32.311500549316406,
+            "max": 34.581031799316406,
+            "mean": 33.58640670776367
+          },
+          "TD2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 22.375802993774414,
+            "max": 23.594552993774414,
+            "mean": 22.753828048706055
+          },
+          "U10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.800018310546875,
+            "max": -0.071502685546875,
+            "mean": -0.930194079875946
+          },
+          "V10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -2.456239700317383,
+            "max": -1.6046772003173828,
+            "mean": -2.1388564109802246
+          },
+          "PSFC_PA": {
+            "unit": "Pa",
+            "valid_pixels": 20,
+            "min": 95170.03125,
+            "max": 98080.03125,
+            "mean": 97022.421875
+          },
+          "SWDOWN_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 619.6256713867188,
+            "max": 692.4752807617188,
+            "mean": 661.0618286132812
+          },
+          "GLW_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 444.163330078125,
+            "max": 452.27081298828125,
+            "mean": 448.772216796875
+          }
+        }
+      }
+    },
+    {
+      "timestamp_utc": "2022-08-24T04:00:00",
+      "cache_path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_0400_UTC.tif",
+      "artifact_path": "output/era5_land/guilin-20220824-30cdb131cf/ERA5LAND_20220824_0400_UTC.tif",
+      "cache_created": true,
+      "details": {
+        "path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_0400_UTC.tif",
+        "size_bytes": 3421,
+        "width": 4,
+        "height": 5,
+        "crs": "EPSG:4326",
+        "transform": [
+          0.10000045742818513,
+          0.0,
+          110.10050362843182,
+          0.0,
+          -0.10000045742818513,
+          25.40011618675902
+        ],
+        "stats": {
+          "T2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 32.885581970214844,
+            "max": 35.369956970214844,
+            "mean": 34.30598831176758
+          },
+          "TD2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 22.367700576782227,
+            "max": 23.838403701782227,
+            "mean": 22.870532989501953
+          },
+          "U10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.611846923828125,
+            "max": -0.178253173828125,
+            "mean": -0.855059802532196
+          },
+          "V10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -2.357851028442383,
+            "max": -1.3471088409423828,
+            "mean": -2.060438632965088
+          },
+          "PSFC_PA": {
+            "unit": "Pa",
+            "valid_pixels": 20,
+            "min": 95078.375,
+            "max": 97976.375,
+            "mean": 96922.7265625
+          },
+          "SWDOWN_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 756.0549926757812,
+            "max": 773.4769287109375,
+            "mean": 765.5943603515625
+          },
+          "GLW_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 448.3541564941406,
+            "max": 461.8566589355469,
+            "mean": 456.2613830566406
+          }
+        }
+      }
+    },
+    {
+      "timestamp_utc": "2022-08-24T05:00:00",
+      "cache_path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_0500_UTC.tif",
+      "artifact_path": "output/era5_land/guilin-20220824-30cdb131cf/ERA5LAND_20220824_0500_UTC.tif",
+      "cache_created": true,
+      "details": {
+        "path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_0500_UTC.tif",
+        "size_bytes": 3423,
+        "width": 4,
+        "height": 5,
+        "crs": "EPSG:4326",
+        "transform": [
+          0.10000045742818513,
+          0.0,
+          110.10050362843182,
+          0.0,
+          -0.10000045742818513,
+          25.40011618675902
+        ],
+        "stats": {
+          "T2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 33.07672882080078,
+            "max": 35.76422882080078,
+            "mean": 34.76481246948242
+          },
+          "TD2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 22.47788429260254,
+            "max": 24.22202491760254,
+            "mean": 23.061084747314453
+          },
+          "U10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.57427978515625,
+            "max": -0.35552978515625,
+            "mean": -0.879895031452179
+          },
+          "V10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -2.21834659576416,
+            "max": -1.3521356582641602,
+            "mean": -1.8837273120880127
+          },
+          "PSFC_PA": {
+            "unit": "Pa",
+            "valid_pixels": 20,
+            "min": 94976.796875,
+            "max": 97867.796875,
+            "mean": 96817.9375
+          },
+          "SWDOWN_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 737.873046875,
+            "max": 821.6394653320312,
+            "mean": 775.9710693359375
+          },
+          "GLW_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 452.4579772949219,
+            "max": 464.96392822265625,
+            "mean": 459.8756408691406
+          }
+        }
+      }
+    },
+    {
+      "timestamp_utc": "2022-08-24T06:00:00",
+      "cache_path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_0600_UTC.tif",
+      "artifact_path": "output/era5_land/guilin-20220824-30cdb131cf/ERA5LAND_20220824_0600_UTC.tif",
+      "cache_created": true,
+      "details": {
+        "path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_0600_UTC.tif",
+        "size_bytes": 3403,
+        "width": 4,
+        "height": 5,
+        "crs": "EPSG:4326",
+        "transform": [
+          0.10000045742818513,
+          0.0,
+          110.10050362843182,
+          0.0,
+          -0.10000045742818513,
+          25.40011618675902
+        ],
+        "stats": {
+          "T2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 32.79094696044922,
+            "max": 35.39641571044922,
+            "mean": 34.51438522338867
+          },
+          "TD2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 22.522775650024414,
+            "max": 24.296213150024414,
+            "mean": 23.116329193115234
+          },
+          "U10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.4163665771484375,
+            "max": -0.1312103271484375,
+            "mean": -0.6502044796943665
+          },
+          "V10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.640364646911621,
+            "max": -0.9860677719116211,
+            "mean": -1.4065757989883423
+          },
+          "PSFC_PA": {
+            "unit": "Pa",
+            "valid_pixels": 20,
+            "min": 94873.859375,
+            "max": 97754.859375,
+            "mean": 96698.7109375
+          },
+          "SWDOWN_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 579.0250244140625,
+            "max": 621.1880493164062,
+            "mean": 592.3450317382812
+          },
+          "GLW_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 455.1384582519531,
+            "max": 468.5376281738281,
+            "mean": 462.7962951660156
+          }
+        }
+      }
+    },
+    {
+      "timestamp_utc": "2022-08-24T07:00:00",
+      "cache_path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_0700_UTC.tif",
+      "artifact_path": "output/era5_land/guilin-20220824-30cdb131cf/ERA5LAND_20220824_0700_UTC.tif",
+      "cache_created": true,
+      "details": {
+        "path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_0700_UTC.tif",
+        "size_bytes": 3407,
+        "width": 4,
+        "height": 5,
+        "crs": "EPSG:4326",
+        "transform": [
+          0.10000045742818513,
+          0.0,
+          110.10050362843182,
+          0.0,
+          -0.10000045742818513,
+          25.40011618675902
+        ],
+        "stats": {
+          "T2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 34.21607208251953,
+            "max": 36.65161895751953,
+            "mean": 35.662750244140625
+          },
+          "TD2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 22.425989151000977,
+            "max": 23.986536026000977,
+            "mean": 23.05909538269043
+          },
+          "U10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.65765380859375,
+            "max": 0.08941650390625,
+            "mean": -0.7034546136856079
+          },
+          "V10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -2.8856201171875,
+            "max": -2.0975341796875,
+            "mean": -2.5260987281799316
+          },
+          "PSFC_PA": {
+            "unit": "Pa",
+            "valid_pixels": 20,
+            "min": 94748.859375,
+            "max": 97625.859375,
+            "mean": 96582.8125
+          },
+          "SWDOWN_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 637.4711303710938,
+            "max": 734.5783081054688,
+            "mean": 685.7249145507812
+          },
+          "GLW_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 455.4155578613281,
+            "max": 476.06610107421875,
+            "mean": 467.58428955078125
+          }
+        }
+      }
+    },
+    {
+      "timestamp_utc": "2022-08-24T08:00:00",
+      "cache_path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_0800_UTC.tif",
+      "artifact_path": "output/era5_land/guilin-20220824-30cdb131cf/ERA5LAND_20220824_0800_UTC.tif",
+      "cache_created": true,
+      "details": {
+        "path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_0800_UTC.tif",
+        "size_bytes": 3433,
+        "width": 4,
+        "height": 5,
+        "crs": "EPSG:4326",
+        "transform": [
+          0.10000045742818513,
+          0.0,
+          110.10050362843182,
+          0.0,
+          -0.10000045742818513,
+          25.40011618675902
+        ],
+        "stats": {
+          "T2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 33.302223205566406,
+            "max": 36.362770080566406,
+            "mean": 35.23963165283203
+          },
+          "TD2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 21.833032608032227,
+            "max": 23.624048233032227,
+            "mean": 22.60256576538086
+          },
+          "U10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.590606689453125,
+            "max": 0.547088623046875,
+            "mean": -0.4896301329135895
+          },
+          "V10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -2.6307373046875,
+            "max": -1.7655029296875,
+            "mean": -2.262524366378784
+          },
+          "PSFC_PA": {
+            "unit": "Pa",
+            "valid_pixels": 20,
+            "min": 94665.90625,
+            "max": 97525.90625,
+            "mean": 96485.203125
+          },
+          "SWDOWN_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 559.5872192382812,
+            "max": 612.9055786132812,
+            "mean": 588.970703125
+          },
+          "GLW_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 452.6260986328125,
+            "max": 470.4761047363281,
+            "mean": 463.08721923828125
+          }
+        }
+      }
+    },
+    {
+      "timestamp_utc": "2022-08-24T09:00:00",
+      "cache_path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_0900_UTC.tif",
+      "artifact_path": "output/era5_land/guilin-20220824-30cdb131cf/ERA5LAND_20220824_0900_UTC.tif",
+      "cache_created": true,
+      "details": {
+        "path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_0900_UTC.tif",
+        "size_bytes": 3417,
+        "width": 4,
+        "height": 5,
+        "crs": "EPSG:4326",
+        "transform": [
+          0.10000045742818513,
+          0.0,
+          110.10050362843182,
+          0.0,
+          -0.10000045742818513,
+          25.40011618675902
+        ],
+        "stats": {
+          "T2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 31.116342544555664,
+            "max": 34.50891876220703,
+            "mean": 33.37434768676758
+          },
+          "TD2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 21.487558364868164,
+            "max": 24.118417739868164,
+            "mean": 22.961872100830078
+          },
+          "U10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -2.2230377197265625,
+            "max": -0.5433502197265625,
+            "mean": -1.4153228998184204
+          },
+          "V10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.7784576416015625,
+            "max": -0.9415435791015625,
+            "mean": -1.4456939697265625
+          },
+          "PSFC_PA": {
+            "unit": "Pa",
+            "valid_pixels": 20,
+            "min": 94711.8359375,
+            "max": 97590.8359375,
+            "mean": 96523.4921875
+          },
+          "SWDOWN_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 232.18666076660156,
+            "max": 322.7066650390625,
+            "mean": 269.0043029785156
+          },
+          "GLW_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 453.91387939453125,
+            "max": 478.27362060546875,
+            "mean": 467.31793212890625
+          }
+        }
+      }
+    },
+    {
+      "timestamp_utc": "2022-08-24T10:00:00",
+      "cache_path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_1000_UTC.tif",
+      "artifact_path": "output/era5_land/guilin-20220824-30cdb131cf/ERA5LAND_20220824_1000_UTC.tif",
+      "cache_created": true,
+      "details": {
+        "path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_1000_UTC.tif",
+        "size_bytes": 3451,
+        "width": 4,
+        "height": 5,
+        "crs": "EPSG:4326",
+        "transform": [
+          0.10000045742818513,
+          0.0,
+          110.10050362843182,
+          0.0,
+          -0.10000045742818513,
+          25.40011618675902
+        ],
+        "stats": {
+          "T2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 29.113046646118164,
+            "max": 33.49781036376953,
+            "mean": 32.01587677001953
+          },
+          "TD2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 22.3621768951416,
+            "max": 25.2293643951416,
+            "mean": 23.784833908081055
+          },
+          "U10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -2.1688690185546875,
+            "max": -1.2743377685546875,
+            "mean": -1.8206268548965454
+          },
+          "V10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -0.6071014404296875,
+            "max": 0.2093048095703125,
+            "mean": -0.1371307373046875
+          },
+          "PSFC_PA": {
+            "unit": "Pa",
+            "valid_pixels": 20,
+            "min": 94757.3515625,
+            "max": 97648.3515625,
+            "mean": 96583.453125
+          },
+          "SWDOWN_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 105.51499938964844,
+            "max": 130.5399932861328,
+            "mean": 117.27071380615234
+          },
+          "GLW_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 444.55889892578125,
+            "max": 461.34527587890625,
+            "mean": 454.5177307128906
+          }
+        }
+      }
+    },
+    {
+      "timestamp_utc": "2022-08-24T11:00:00",
+      "cache_path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_1100_UTC.tif",
+      "artifact_path": "output/era5_land/guilin-20220824-30cdb131cf/ERA5LAND_20220824_1100_UTC.tif",
+      "cache_created": true,
+      "details": {
+        "path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_1100_UTC.tif",
+        "size_bytes": 3419,
+        "width": 4,
+        "height": 5,
+        "crs": "EPSG:4326",
+        "transform": [
+          0.10000045742818513,
+          0.0,
+          110.10050362843182,
+          0.0,
+          -0.10000045742818513,
+          25.40011618675902
+        ],
+        "stats": {
+          "T2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 28.71677589416504,
+            "max": 32.273414611816406,
+            "mean": 31.13836097717285
+          },
+          "TD2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 22.50095558166504,
+            "max": 25.39743995666504,
+            "mean": 23.97321891784668
+          },
+          "U10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.6871337890625,
+            "max": -0.8765869140625,
+            "mean": -1.3853271007537842
+          },
+          "V10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -0.8197002410888672,
+            "max": -0.1292705535888672,
+            "mean": -0.39230766892433167
+          },
+          "PSFC_PA": {
+            "unit": "Pa",
+            "valid_pixels": 20,
+            "min": 94746.078125,
+            "max": 97647.078125,
+            "mean": 96584.6875
+          },
+          "SWDOWN_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 27.498332977294922,
+            "max": 32.20000076293945,
+            "mean": 29.335445404052734
+          },
+          "GLW_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 439.6502685546875,
+            "max": 447.97222900390625,
+            "mean": 444.351318359375
+          }
+        }
+      }
+    },
+    {
+      "timestamp_utc": "2022-08-24T12:00:00",
+      "cache_path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_1200_UTC.tif",
+      "artifact_path": "output/era5_land/guilin-20220824-30cdb131cf/ERA5LAND_20220824_1200_UTC.tif",
+      "cache_created": true,
+      "details": {
+        "path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_1200_UTC.tif",
+        "size_bytes": 3413,
+        "width": 4,
+        "height": 5,
+        "crs": "EPSG:4326",
+        "transform": [
+          0.10000045742818513,
+          0.0,
+          110.10050362843182,
+          0.0,
+          -0.10000045742818513,
+          25.40011618675902
+        ],
+        "stats": {
+          "T2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 28.112329483032227,
+            "max": 31.170923233032227,
+            "mean": 30.300899505615234
+          },
+          "TD2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 22.2767276763916,
+            "max": 25.9232120513916,
+            "mean": 24.092256546020508
+          },
+          "U10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.46661376953125,
+            "max": -0.56329345703125,
+            "mean": -1.0091431140899658
+          },
+          "V10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.6782665252685547,
+            "max": -0.6499462127685547,
+            "mean": -1.1863720417022705
+          },
+          "PSFC_PA": {
+            "unit": "Pa",
+            "valid_pixels": 20,
+            "min": 94748.84375,
+            "max": 97656.84375,
+            "mean": 96595.1015625
+          },
+          "SWDOWN_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 0.02222222276031971,
+            "max": 0.06277777999639511,
+            "mean": 0.04063888639211655
+          },
+          "GLW_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 436.3949890136719,
+            "max": 442.989990234375,
+            "mean": 440.026123046875
+          }
+        }
+      }
+    },
+    {
+      "timestamp_utc": "2022-08-24T13:00:00",
+      "cache_path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_1300_UTC.tif",
+      "artifact_path": "output/era5_land/guilin-20220824-30cdb131cf/ERA5LAND_20220824_1300_UTC.tif",
+      "cache_created": true,
+      "details": {
+        "path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_1300_UTC.tif",
+        "size_bytes": 3373,
+        "width": 4,
+        "height": 5,
+        "crs": "EPSG:4326",
+        "transform": [
+          0.10000045742818513,
+          0.0,
+          110.10050362843182,
+          0.0,
+          -0.10000045742818513,
+          25.40011618675902
+        ],
+        "stats": {
+          "T2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 27.52262306213379,
+            "max": 30.37613868713379,
+            "mean": 29.537078857421875
+          },
+          "TD2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 22.058603286743164,
+            "max": 26.304697036743164,
+            "mean": 24.025495529174805
+          },
+          "U10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.648468017578125,
+            "max": -0.520538330078125,
+            "mean": -1.145928978919983
+          },
+          "V10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.8839826583862305,
+            "max": -0.5109357833862305,
+            "mean": -1.2951644659042358
+          },
+          "PSFC_PA": {
+            "unit": "Pa",
+            "valid_pixels": 20,
+            "min": 94776.75,
+            "max": 97687.75,
+            "mean": 96621.75
+          },
+          "SWDOWN_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "GLW_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 428.23333740234375,
+            "max": 436.707763671875,
+            "mean": 432.96923828125
+          }
+        }
+      }
+    },
+    {
+      "timestamp_utc": "2022-08-24T14:00:00",
+      "cache_path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_1400_UTC.tif",
+      "artifact_path": "output/era5_land/guilin-20220824-30cdb131cf/ERA5LAND_20220824_1400_UTC.tif",
+      "cache_created": true,
+      "details": {
+        "path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_1400_UTC.tif",
+        "size_bytes": 3377,
+        "width": 4,
+        "height": 5,
+        "crs": "EPSG:4326",
+        "transform": [
+          0.10000045742818513,
+          0.0,
+          110.10050362843182,
+          0.0,
+          -0.10000045742818513,
+          25.40011618675902
+        ],
+        "stats": {
+          "T2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 27.13523292541504,
+            "max": 29.65671730041504,
+            "mean": 28.9158992767334
+          },
+          "TD2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 22.17962074279785,
+            "max": 25.74602699279785,
+            "mean": 23.985872268676758
+          },
+          "U10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.543853759765625,
+            "max": -0.374908447265625,
+            "mean": -1.086431860923767
+          },
+          "V10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.812861442565918,
+            "max": -0.34801769256591797,
+            "mean": -1.1745803356170654
+          },
+          "PSFC_PA": {
+            "unit": "Pa",
+            "valid_pixels": 20,
+            "min": 94826.078125,
+            "max": 97743.078125,
+            "mean": 96676.5859375
+          },
+          "SWDOWN_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "GLW_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 423.27471923828125,
+            "max": 431.3791809082031,
+            "mean": 428.26739501953125
+          }
+        }
+      }
+    },
+    {
+      "timestamp_utc": "2022-08-24T15:00:00",
+      "cache_path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_1500_UTC.tif",
+      "artifact_path": "output/era5_land/guilin-20220824-30cdb131cf/ERA5LAND_20220824_1500_UTC.tif",
+      "cache_created": true,
+      "details": {
+        "path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_1500_UTC.tif",
+        "size_bytes": 3375,
+        "width": 4,
+        "height": 5,
+        "crs": "EPSG:4326",
+        "transform": [
+          0.10000045742818513,
+          0.0,
+          110.10050362843182,
+          0.0,
+          -0.10000045742818513,
+          25.40011618675902
+        ],
+        "stats": {
+          "T2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 26.618722915649414,
+            "max": 28.890207290649414,
+            "mean": 28.26881980895996
+          },
+          "TD2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 22.303354263305664,
+            "max": 25.651010513305664,
+            "mean": 23.900226593017578
+          },
+          "U10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.232757568359375,
+            "max": -0.161468505859375,
+            "mean": -0.799163818359375
+          },
+          "V10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.88104248046875,
+            "max": -0.47186279296875,
+            "mean": -1.32342529296875
+          },
+          "PSFC_PA": {
+            "unit": "Pa",
+            "valid_pixels": 20,
+            "min": 94849.6796875,
+            "max": 97775.6796875,
+            "mean": 96708.71875
+          },
+          "SWDOWN_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "GLW_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 418.8066711425781,
+            "max": 428.667236328125,
+            "mean": 424.59002685546875
+          }
+        }
+      }
+    },
+    {
+      "timestamp_utc": "2022-08-24T16:00:00",
+      "cache_path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_1600_UTC.tif",
+      "artifact_path": "output/era5_land/guilin-20220824-30cdb131cf/ERA5LAND_20220824_1600_UTC.tif",
+      "cache_created": true,
+      "details": {
+        "path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_1600_UTC.tif",
+        "size_bytes": 3389,
+        "width": 4,
+        "height": 5,
+        "crs": "EPSG:4326",
+        "transform": [
+          0.10000045742818513,
+          0.0,
+          110.10050362843182,
+          0.0,
+          -0.10000045742818513,
+          25.40011618675902
+        ],
+        "stats": {
+          "T2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 26.19437599182129,
+            "max": 28.26664161682129,
+            "mean": 27.715763092041016
+          },
+          "TD2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 22.355798721313477,
+            "max": 25.474939346313477,
+            "mean": 23.81068229675293
+          },
+          "U10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -0.9467010498046875,
+            "max": -0.0404510498046875,
+            "mean": -0.498312383890152
+          },
+          "V10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.898756980895996,
+            "max": -0.4202413558959961,
+            "mean": -1.3756126165390015
+          },
+          "PSFC_PA": {
+            "unit": "Pa",
+            "valid_pixels": 20,
+            "min": 94853.765625,
+            "max": 97780.765625,
+            "mean": 96711.6640625
+          },
+          "SWDOWN_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "GLW_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 419.25860595703125,
+            "max": 427.5797119140625,
+            "mean": 423.75897216796875
+          }
+        }
+      }
+    },
+    {
+      "timestamp_utc": "2022-08-24T17:00:00",
+      "cache_path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_1700_UTC.tif",
+      "artifact_path": "output/era5_land/guilin-20220824-30cdb131cf/ERA5LAND_20220824_1700_UTC.tif",
+      "cache_created": true,
+      "details": {
+        "path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_1700_UTC.tif",
+        "size_bytes": 3389,
+        "width": 4,
+        "height": 5,
+        "crs": "EPSG:4326",
+        "transform": [
+          0.10000045742818513,
+          0.0,
+          110.10050362843182,
+          0.0,
+          -0.10000045742818513,
+          25.40011618675902
+        ],
+        "stats": {
+          "T2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 26.016077041625977,
+            "max": 27.795373916625977,
+            "mean": 27.329553604125977
+          },
+          "TD2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 22.37870216369629,
+            "max": 25.32987403869629,
+            "mean": 23.745594024658203
+          },
+          "U10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.0520782470703125,
+            "max": -0.2747344970703125,
+            "mean": -0.6234161257743835
+          },
+          "V10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.8019351959228516,
+            "max": -0.29998207092285156,
+            "mean": -1.2317692041397095
+          },
+          "PSFC_PA": {
+            "unit": "Pa",
+            "valid_pixels": 20,
+            "min": 94827.859375,
+            "max": 97754.859375,
+            "mean": 96684.765625
+          },
+          "SWDOWN_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "GLW_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 419.399169921875,
+            "max": 431.1363830566406,
+            "mean": 425.95892333984375
+          }
+        }
+      }
+    },
+    {
+      "timestamp_utc": "2022-08-24T18:00:00",
+      "cache_path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_1800_UTC.tif",
+      "artifact_path": "output/era5_land/guilin-20220824-30cdb131cf/ERA5LAND_20220824_1800_UTC.tif",
+      "cache_created": true,
+      "details": {
+        "path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_1800_UTC.tif",
+        "size_bytes": 3383,
+        "width": 4,
+        "height": 5,
+        "crs": "EPSG:4326",
+        "transform": [
+          0.10000045742818513,
+          0.0,
+          110.10050362843182,
+          0.0,
+          -0.10000045742818513,
+          25.40011618675902
+        ],
+        "stats": {
+          "T2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 25.506235122680664,
+            "max": 27.594125747680664,
+            "mean": 27.059749603271484
+          },
+          "TD2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 22.374826431274414,
+            "max": 25.105295181274414,
+            "mean": 23.38410186767578
+          },
+          "U10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.4136199951171875,
+            "max": -0.7456512451171875,
+            "mean": -1.0971161127090454
+          },
+          "V10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.607198715209961,
+            "max": -0.6804409027099609,
+            "mean": -1.2172085046768188
+          },
+          "PSFC_PA": {
+            "unit": "Pa",
+            "valid_pixels": 20,
+            "min": 94815.5703125,
+            "max": 97748.5703125,
+            "mean": 96669.6796875
+          },
+          "SWDOWN_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "GLW_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 423.7361145019531,
+            "max": 433.6833190917969,
+            "mean": 429.2276916503906
+          }
+        }
+      }
+    },
+    {
+      "timestamp_utc": "2022-08-24T19:00:00",
+      "cache_path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_1900_UTC.tif",
+      "artifact_path": "output/era5_land/guilin-20220824-30cdb131cf/ERA5LAND_20220824_1900_UTC.tif",
+      "cache_created": true,
+      "details": {
+        "path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_1900_UTC.tif",
+        "size_bytes": 3403,
+        "width": 4,
+        "height": 5,
+        "crs": "EPSG:4326",
+        "transform": [
+          0.10000045742818513,
+          0.0,
+          110.10050362843182,
+          0.0,
+          -0.10000045742818513,
+          25.40011618675902
+        ],
+        "stats": {
+          "T2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 25.067453384399414,
+            "max": 27.139719009399414,
+            "mean": 26.534542083740234
+          },
+          "TD2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 22.074594497680664,
+            "max": 24.308969497680664,
+            "mean": 22.90515899658203
+          },
+          "U10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.1278228759765625,
+            "max": -0.0164947509765625,
+            "mean": -0.5572662353515625
+          },
+          "V10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -2.2385520935058594,
+            "max": -1.4240989685058594,
+            "mean": -1.9686301946640015
+          },
+          "PSFC_PA": {
+            "unit": "Pa",
+            "valid_pixels": 20,
+            "min": 94779.765625,
+            "max": 97727.765625,
+            "mean": 96652.765625
+          },
+          "SWDOWN_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "GLW_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 412.6524963378906,
+            "max": 422.24859619140625,
+            "mean": 418.1982421875
+          }
+        }
+      }
+    },
+    {
+      "timestamp_utc": "2022-08-24T20:00:00",
+      "cache_path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_2000_UTC.tif",
+      "artifact_path": "output/era5_land/guilin-20220824-30cdb131cf/ERA5LAND_20220824_2000_UTC.tif",
+      "cache_created": true,
+      "details": {
+        "path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_2000_UTC.tif",
+        "size_bytes": 3389,
+        "width": 4,
+        "height": 5,
+        "crs": "EPSG:4326",
+        "transform": [
+          0.10000045742818513,
+          0.0,
+          110.10050362843182,
+          0.0,
+          -0.10000045742818513,
+          25.40011618675902
+        ],
+        "stats": {
+          "T2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 24.90293312072754,
+            "max": 27.16465187072754,
+            "mean": 26.500295639038086
+          },
+          "TD2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 21.844751358032227,
+            "max": 23.874048233032227,
+            "mean": 22.66994857788086
+          },
+          "U10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.4072418212890625,
+            "max": -0.2187652587890625,
+            "mean": -0.8441070318222046
+          },
+          "V10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -2.287806510925293,
+            "max": -1.441126823425293,
+            "mean": -2.0294570922851562
+          },
+          "PSFC_PA": {
+            "unit": "Pa",
+            "valid_pixels": 20,
+            "min": 94748.921875,
+            "max": 97695.921875,
+            "mean": 96620.5625
+          },
+          "SWDOWN_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "GLW_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 410.4391784667969,
+            "max": 416.1030578613281,
+            "mean": 413.8758850097656
+          }
+        }
+      }
+    },
+    {
+      "timestamp_utc": "2022-08-24T21:00:00",
+      "cache_path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_2100_UTC.tif",
+      "artifact_path": "output/era5_land/guilin-20220824-30cdb131cf/ERA5LAND_20220824_2100_UTC.tif",
+      "cache_created": true,
+      "details": {
+        "path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_2100_UTC.tif",
+        "size_bytes": 3395,
+        "width": 4,
+        "height": 5,
+        "crs": "EPSG:4326",
+        "transform": [
+          0.10000045742818513,
+          0.0,
+          110.10050362843182,
+          0.0,
+          -0.10000045742818513,
+          25.40011618675902
+        ],
+        "stats": {
+          "T2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 24.7779483795166,
+            "max": 27.1959171295166,
+            "mean": 26.4742374420166
+          },
+          "TD2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 21.842050552368164,
+            "max": 23.656503677368164,
+            "mean": 22.599958419799805
+          },
+          "U10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.363494873046875,
+            "max": -0.277557373046875,
+            "mean": -0.9102722406387329
+          },
+          "V10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -2.2081823348999023,
+            "max": -1.2892370223999023,
+            "mean": -1.9360634088516235
+          },
+          "PSFC_PA": {
+            "unit": "Pa",
+            "valid_pixels": 20,
+            "min": 94746.171875,
+            "max": 97693.171875,
+            "mean": 96619.765625
+          },
+          "SWDOWN_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "GLW_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 415.4488830566406,
+            "max": 418.7594299316406,
+            "mean": 417.428955078125
+          }
+        }
+      }
+    },
+    {
+      "timestamp_utc": "2022-08-24T22:00:00",
+      "cache_path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_2200_UTC.tif",
+      "artifact_path": "output/era5_land/guilin-20220824-30cdb131cf/ERA5LAND_20220824_2200_UTC.tif",
+      "cache_created": true,
+      "details": {
+        "path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_2200_UTC.tif",
+        "size_bytes": 3389,
+        "width": 4,
+        "height": 5,
+        "crs": "EPSG:4326",
+        "transform": [
+          0.10000045742818513,
+          0.0,
+          110.10050362843182,
+          0.0,
+          -0.10000045742818513,
+          25.40011618675902
+        ],
+        "stats": {
+          "T2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 24.657983779907227,
+            "max": 27.073999404907227,
+            "mean": 26.3211669921875
+          },
+          "TD2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 22.011987686157227,
+            "max": 23.617456436157227,
+            "mean": 22.653688430786133
+          },
+          "U10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.4124603271484375,
+            "max": -0.4788665771484375,
+            "mean": -1.0430266857147217
+          },
+          "V10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -2.1697998046875,
+            "max": -1.1971435546875,
+            "mean": -1.875463843345642
+          },
+          "PSFC_PA": {
+            "unit": "Pa",
+            "valid_pixels": 20,
+            "min": 94811.84375,
+            "max": 97759.84375,
+            "mean": 96681.8984375
+          },
+          "SWDOWN_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "GLW_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 407.9397277832031,
+            "max": 420.09637451171875,
+            "mean": 414.88604736328125
+          }
+        }
+      }
+    },
+    {
+      "timestamp_utc": "2022-08-24T23:00:00",
+      "cache_path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_2300_UTC.tif",
+      "artifact_path": "output/era5_land/guilin-20220824-30cdb131cf/ERA5LAND_20220824_2300_UTC.tif",
+      "cache_created": true,
+      "details": {
+        "path": "data/era5_land/v1/guilin-20220824-30cdb131cf/2022/08/24/ERA5LAND_20220824_2300_UTC.tif",
+        "size_bytes": 3405,
+        "width": 4,
+        "height": 5,
+        "crs": "EPSG:4326",
+        "transform": [
+          0.10000045742818513,
+          0.0,
+          110.10050362843182,
+          0.0,
+          -0.10000045742818513,
+          25.40011618675902
+        ],
+        "stats": {
+          "T2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 24.925256729125977,
+            "max": 27.325647354125977,
+            "mean": 26.531505584716797
+          },
+          "TD2_C": {
+            "unit": "degC",
+            "valid_pixels": 20,
+            "min": 22.414392471313477,
+            "max": 23.844079971313477,
+            "mean": 22.943592071533203
+          },
+          "U10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -1.596466064453125,
+            "max": -0.729278564453125,
+            "mean": -1.2705872058868408
+          },
+          "V10_MPS": {
+            "unit": "m s-1",
+            "valid_pixels": 20,
+            "min": -2.1185951232910156,
+            "max": -1.0316810607910156,
+            "mean": -1.6564369201660156
+          },
+          "PSFC_PA": {
+            "unit": "Pa",
+            "valid_pixels": 20,
+            "min": 94865.6328125,
+            "max": 97810.6328125,
+            "mean": 96734.484375
+          },
+          "SWDOWN_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 18.40999984741211,
+            "max": 19.6299991607666,
+            "mean": 19.152915954589844
+          },
+          "GLW_WM2": {
+            "unit": "W m-2",
+            "valid_pixels": 20,
+            "min": 413.8344421386719,
+            "max": 420.8877868652344,
+            "mean": 417.936279296875
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "product": "ELITE AGRI hourly 4 km seamless LST (FY-4A/FY-4B by acquisition date)",
+  "architecture": "Zenodo temporary archive -> GitHub China cache -> ROI artifact",
+  "start_date": "2022-08-24T03:00:00",
+  "end_date": "2022-08-24T04:00:00",
+  "bbox": [
+    110.12447068021214,
+    24.99113120420509,
+    110.49277994670115,
+    25.341474165011704
+  ],
+  "region_name": "guilin-20220824",
+  "region_id": "guilin-20220824-30cdb131cf",
+  "output_unit": "celsius",
+  "count": 1,
+  "files": [
+    {
+      "timestamp": "2022-08-24T03:00:00",
+      "cache_path": "data/elite/china/2022/08/24/ELITE_FY4A_LST_20220824_0300_CHINA_K.tif",
+      "path": "output/derived/guilin-20220824-30cdb131cf/ELITE_FY4A_LST_20220824_0300_C.tif",
+      "valid_pixels": 110,
+      "min": 34.739990234375,
+      "max": 42.670013427734375
+    }
+  ],
+  "repository_cache": {
+    "root": "data/elite/china",
+    "china_bbox": [
+      73.0,
+      18.0,
+      135.0,
+      54.0
+    ],
+    "crs": "EPSG:4326",
+    "resolution_degrees": 0.035932611365,
+    "dtype": "uint16",
+    "scale_factor": 0.01,
+    "unit": "kelvin",
+    "cache_hits": 0,
+    "cache_created": 1,
+    "created_files": [
+      {
+        "timestamp": "2022-08-24T03:00:00",
+        "path": "data/elite/china/2022/08/24/ELITE_FY4A_LST_20220824_0300_CHINA_K.tif",
+        "size_bytes": 2250450,
+        "width": 1726,
+        "height": 1002,
+        "valid_pixels": 1426711,
+        "source_dataset": "LST",
+        "source_time_label": "2022-08-24T03:00:00",
+        "source_time_standard": "UTC",
+        "source_time_attrs": {}
+      }
+    ]
+  },
+  "temporary_archive_downloads": [
+    {
+      "year_month": "202208",
+      "source": "zenodo-http-range",
+      "archive_size_bytes": 1937731284,
+      "remote_url": "https://zenodo.org/records/10595576/files/202208.zip?download=1",
+      "temporary": false
+    }
+  ]
+}

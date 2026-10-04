@@ -1,0 +1,132 @@
+{
+  "dataset": "ANCFDS-LST",
+  "doi": "10.11888/RemoteSen.tpdc.303249",
+  "dataset_id": "4adbc070-afb3-4e9c-85a0-2ce68d1388ad",
+  "dataset_page": "https://data.tpdc.ac.cn/en/data/4adbc070-afb3-4e9c-85a0-2ce68d1388ad",
+  "source": "TPDC public file API",
+  "start_date": "2022-08-24",
+  "end_date": "2022-08-25",
+  "hours": [
+    9,
+    10
+  ],
+  "bbox_wgs84": [
+    110.12447068021214,
+    24.99113120420509,
+    110.49277994670115,
+    25.341474165011704
+  ],
+  "region_name": "guilin-20220824",
+  "region_id": "guilin-20220824-30cdb131cf",
+  "output_unit": "celsius",
+  "band_semantics": {
+    "1": "T_dir: directional LST in the FY-4A/AGRI viewing direction",
+    "2": "T_nadir: angular-normalized nadir LST",
+    "3": "T_hemi: hemispherical-equivalent LST"
+  },
+  "source_encoding": {
+    "dtype": "uint16",
+    "nodata": 0,
+    "scale_factor_kelvin": 0.1
+  },
+  "requested_source_hours": 2,
+  "source_bytes_downloaded_this_run": 263565566,
+  "records": [
+    {
+      "path": "data/tpdc_ancfds/v1/guilin-20220824-30cdb131cf/2022/08/24/ANCFDS_FY4A_20220824_0900_C.tif",
+      "size_bytes": 8259,
+      "crs": "EPSG:4326",
+      "shape": [
+        3,
+        35,
+        37
+      ],
+      "band_names": [
+        "T_DIR_C",
+        "T_NADIR_C",
+        "T_HEMI_C"
+      ],
+      "valid_pixels": [
+        1295,
+        1295,
+        1295
+      ],
+      "stats": {
+        "T_DIR": {
+          "valid_pixels": 1295,
+          "min": 27.050018310546875,
+          "max": 33.45001220703125,
+          "mean": 30.40985679626465
+        },
+        "T_NADIR": {
+          "valid_pixels": 1295,
+          "min": 27.25,
+          "max": 36.350006103515625,
+          "mean": 30.502986907958984
+        },
+        "T_HEMI": {
+          "valid_pixels": 1295,
+          "min": 27.1500244140625,
+          "max": 34.6500244140625,
+          "mean": 30.00090217590332
+        }
+      },
+      "date": "2022-08-24",
+      "hour_utc": 9,
+      "cache_hit": false,
+      "cache_path": "data/tpdc_ancfds/v1/guilin-20220824-30cdb131cf/2022/08/24/ANCFDS_FY4A_20220824_0900_C.tif",
+      "source_file": "FY4A_AGRI_20220824_090000_AllWeatherLST001.tif",
+      "source_file_id": "7bbeaef6-64ec-4468-9fe6-c94e2374e213",
+      "source_size_bytes": 133099755,
+      "source_bytes_downloaded_this_run": 133099755
+    },
+    {
+      "path": "data/tpdc_ancfds/v1/guilin-20220824-30cdb131cf/2022/08/24/ANCFDS_FY4A_20220824_1000_C.tif",
+      "size_bytes": 8317,
+      "crs": "EPSG:4326",
+      "shape": [
+        3,
+        35,
+        37
+      ],
+      "band_names": [
+        "T_DIR_C",
+        "T_NADIR_C",
+        "T_HEMI_C"
+      ],
+      "valid_pixels": [
+        1295,
+        1295,
+        1295
+      ],
+      "stats": {
+        "T_DIR": {
+          "valid_pixels": 1295,
+          "min": 25.25,
+          "max": 32.1500244140625,
+          "mean": 29.130245208740234
+        },
+        "T_NADIR": {
+          "valid_pixels": 1295,
+          "min": 25.550018310546875,
+          "max": 35.6500244140625,
+          "mean": 29.005067825317383
+        },
+        "T_HEMI": {
+          "valid_pixels": 1295,
+          "min": 25.1500244140625,
+          "max": 33.25,
+          "mean": 28.39966583251953
+        }
+      },
+      "date": "2022-08-24",
+      "hour_utc": 10,
+      "cache_hit": false,
+      "cache_path": "data/tpdc_ancfds/v1/guilin-20220824-30cdb131cf/2022/08/24/ANCFDS_FY4A_20220824_1000_C.tif",
+      "source_file": "FY4A_AGRI_20220824_100000_AllWeatherLST001.tif",
+      "source_file_id": "82e7533d-7068-420d-be5b-1bfafbfb2bcd",
+      "source_size_bytes": 130465811,
+      "source_bytes_downloaded_this_run": 130465811
+    }
+  ]
+}

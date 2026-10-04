@@ -1,0 +1,194 @@
+{
+  "product": "Landsat 8/9 Collection 2 Level 2",
+  "project": "ee-ygangxian",
+  "start_date": "2022-08-24",
+  "end_date": "2022-08-25",
+  "bbox": [
+    110.12447068021214,
+    24.99113120420509,
+    110.49277994670115,
+    25.341474165011704
+  ],
+  "region_name": "guilin-20220824",
+  "region_id": "guilin-20220824-30cdb131cf",
+  "satellites": [
+    "L8",
+    "L9"
+  ],
+  "cloud_cover_max": 80.0,
+  "download_mask": "native product availability only; no additional QA mask",
+  "qa_preserved": true,
+  "water_preserved": true,
+  "cache_version": "v3",
+  "cache_scope": "validation_lst_qa",
+  "spectral_factors_note": "Persistent Landsat cache contains LST/QA only. Use the scaling-factors workflow for SR-derived downscaling predictors.",
+  "scene_count": 2,
+  "cache_hits": 0,
+  "cache_created": 2,
+  "bands": [
+    {
+      "name": "LST_C",
+      "source": "ST_B10",
+      "unit": "degC"
+    },
+    {
+      "name": "ST_QA_K",
+      "source": "ST_QA",
+      "unit": "K"
+    },
+    {
+      "name": "QA_PIXEL",
+      "source": "QA_PIXEL",
+      "unit": "raw_qa_bitfield"
+    },
+    {
+      "name": "QA_RADSAT",
+      "source": "QA_RADSAT",
+      "unit": "raw_qa_bitfield"
+    }
+  ],
+  "files": [
+    {
+      "product_id": "LC09_L2SP_124042_20220824_20230401_02_T1",
+      "scene_id": "LC91240422022236LGN01",
+      "spacecraft": "LANDSAT_9",
+      "cloud_cover": 35.59,
+      "acquired_utc": "2022-08-24T03:03:54.706000Z",
+      "cache_path": "data/landsat_c2_l2/v3/guilin-20220824-30cdb131cf/2022/08/24/LC09_L2SP_124042_20220824_20230401_02_T1_L2_LST_QA.tif",
+      "artifact_path": "output/landsat/guilin-20220824-30cdb131cf/LC09_L2SP_124042_20220824_20230401_02_T1_L2_LST_QA.tif",
+      "created": true,
+      "details": {
+        "path": "data/landsat_c2_l2/v3/guilin-20220824-30cdb131cf/2022/08/24/LC09_L2SP_124042_20220824_20230401_02_T1_L2_LST_QA.tif",
+        "size_bytes": 1818115,
+        "width": 1367,
+        "height": 1301,
+        "crs": "EPSG:4326",
+        "stats": {
+          "LST_C": {
+            "unit": "degC",
+            "valid_pixels": 450950,
+            "min": -14.797286033630371,
+            "max": 57.97919464111328,
+            "mean": 38.347015380859375
+          },
+          "ST_QA_K": {
+            "unit": "K",
+            "valid_pixels": 450950,
+            "min": 2.819999933242798,
+            "max": 48.18000030517578,
+            "mean": 4.707263469696045
+          },
+          "QA_PIXEL": {
+            "unit": "raw_qa_bitfield",
+            "valid_pixels": 452078,
+            "min": 21762.0,
+            "max": 24144.0,
+            "mean": 22037.33984375
+          },
+          "QA_RADSAT": {
+            "unit": "raw_qa_bitfield",
+            "valid_pixels": 1778467,
+            "min": 0.0,
+            "max": 96.0,
+            "mean": 0.0004678186378441751
+          }
+        },
+        "quality_summary": {
+          "total_pixels": 1778467,
+          "scene_cloud_cover_percent_metadata": 35.59,
+          "native_lst_valid_pixels": 450950,
+          "native_lst_valid_ratio": 0.253561,
+          "clear_lst_pixels": 355164,
+          "clear_lst_ratio": 0.199702,
+          "qa_available_pixels": 452078,
+          "qa_bit_counts": {
+            "fill": 0,
+            "dilated_cloud": 21532,
+            "cirrus": 0,
+            "cloud": 48929,
+            "cloud_shadow": 34852,
+            "snow": 0,
+            "clear": 381617,
+            "water": 1490
+          },
+          "water_pixels": 1490,
+          "water_ratio": 0.000838,
+          "radiometric_saturation_pixels": 11,
+          "radiometric_saturation_ratio": 6e-06,
+          "note": "No QA mask is applied during download. clear_lst excludes fill/dilated cloud/cirrus/cloud/cloud shadow/snow for diagnostics only; water is retained. QA_RADSAT is preserved as a diagnostic and is not used to erase LST. Reflective SR bands are provided by the separate scaling-factors pipeline."
+        }
+      }
+    },
+    {
+      "product_id": "LC09_L2SP_124043_20220824_20230401_02_T1",
+      "scene_id": "LC91240432022236LGN01",
+      "spacecraft": "LANDSAT_9",
+      "cloud_cover": 7.82,
+      "acquired_utc": "2022-08-24T03:04:18.597000Z",
+      "cache_path": "data/landsat_c2_l2/v3/guilin-20220824-30cdb131cf/2022/08/24/LC09_L2SP_124043_20220824_20230401_02_T1_L2_LST_QA.tif",
+      "artifact_path": "output/landsat/guilin-20220824-30cdb131cf/LC09_L2SP_124043_20220824_20230401_02_T1_L2_LST_QA.tif",
+      "created": true,
+      "details": {
+        "path": "data/landsat_c2_l2/v3/guilin-20220824-30cdb131cf/2022/08/24/LC09_L2SP_124043_20220824_20230401_02_T1_L2_LST_QA.tif",
+        "size_bytes": 6146924,
+        "width": 1367,
+        "height": 1301,
+        "crs": "EPSG:4326",
+        "stats": {
+          "LST_C": {
+            "unit": "degC",
+            "valid_pixels": 1725743,
+            "min": -14.797286033630371,
+            "max": 58.816612243652344,
+            "mean": 41.055782318115234
+          },
+          "ST_QA_K": {
+            "unit": "K",
+            "valid_pixels": 1725743,
+            "min": 2.799999952316284,
+            "max": 48.7400016784668,
+            "mean": 4.00291633605957
+          },
+          "QA_PIXEL": {
+            "unit": "raw_qa_bitfield",
+            "valid_pixels": 1778467,
+            "min": 21762.0,
+            "max": 24144.0,
+            "mean": 21895.98046875
+          },
+          "QA_RADSAT": {
+            "unit": "raw_qa_bitfield",
+            "valid_pixels": 1778467,
+            "min": 0.0,
+            "max": 112.0,
+            "mean": 0.002096187323331833
+          }
+        },
+        "quality_summary": {
+          "total_pixels": 1778467,
+          "scene_cloud_cover_percent_metadata": 7.82,
+          "native_lst_valid_pixels": 1725743,
+          "native_lst_valid_ratio": 0.970354,
+          "clear_lst_pixels": 1595669,
+          "clear_lst_ratio": 0.897216,
+          "qa_available_pixels": 1778467,
+          "qa_bit_counts": {
+            "fill": 0,
+            "dilated_cloud": 30755,
+            "cirrus": 0,
+            "cloud": 66212,
+            "cloud_shadow": 44493,
+            "snow": 0,
+            "clear": 1681500,
+            "water": 8516
+          },
+          "water_pixels": 8516,
+          "water_ratio": 0.004788,
+          "radiometric_saturation_pixels": 46,
+          "radiometric_saturation_ratio": 2.6e-05,
+          "note": "No QA mask is applied during download. clear_lst excludes fill/dilated cloud/cirrus/cloud/cloud shadow/snow for diagnostics only; water is retained. QA_RADSAT is preserved as a diagnostic and is not used to erase LST. Reflective SR bands are provided by the separate scaling-factors pipeline."
+        }
+      }
+    }
+  ]
+}

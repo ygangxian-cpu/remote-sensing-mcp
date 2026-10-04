@@ -1,0 +1,11 @@
+{
+  "region": "Guilin",
+  "date": "2022-08-24",
+  "bbox_wgs84": [110.12447068021214, 24.99113120420509, 110.49277994670115, 25.341474165011704],
+  "elite": "ELITE FY-4A/AGRI hourly seamless 4 km LST from Zenodo record 10595576; target-aligned 03:00 UTC extracted by HTTP Range from 202208.zip",
+  "ancfds": "ANCFDS-LST 2022-08-24 hours 00-10 UTC; band 2 T_nadir is the canonical Stage-2 parent. These are the daylight/target-relevant hours used by SA-XGBoost; TPDC source is missing 16-22 UTC and no missing source hour is fabricated.",
+  "era5_land": "hourly, used only to construct permitted dynamic energy factors",
+  "landsat": "Landsat 8/9 C2 L2 raw-valid-pixel validation; QA mask is applied downstream",
+  "scaling_factors": "100 m terrain, WorldCover, Landsat spectral factors and MCD43A3 BSA/WSA",
+  "forbidden": ["T_hemi", "T2/TD2 as Stage-2 predictors", "wind/pressure as Stage-2 predictors", "lat/lon as Stage-2 predictors"]
+}
