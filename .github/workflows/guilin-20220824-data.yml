@@ -19,6 +19,8 @@ env:
   END_DATE: "2022-08-25"
   START_ISO: "2022-08-24T00:00:00"
   END_ISO: "2022-08-25T00:00:00"
+  ELITE_START_ISO: "2022-08-24T03:00:00"
+  ELITE_END_ISO: "2022-08-24T04:00:00"
 
 jobs:
   ee_inputs:
@@ -96,7 +98,7 @@ jobs:
         run: pip install requests numpy rasterio
       - name: 获取ANCFDS可用时次T_nadir源文件
         run: |
-          python tpdc_ancfds_worker.py --start-date "$START_DATE" --end-date "$END_DATE" --bbox "$ROI" --region-name "$REGION" --hours "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,23" --output-unit celsius
+          python tpdc_ancfds_worker.py --start-date "$START_DATE" --end-date "$END_DATE" --bbox "$ROI" --region-name "$REGION" --hours "0,1,2,3,4,5,6,7,8,9,10" --output-unit celsius
           mkdir -p bundle/ancfds bundle/meta
           cp -a output/tpdc_ancfds/. bundle/ancfds/
           cp output/result.json bundle/meta/ancfds_result.json
@@ -117,10 +119,10 @@ jobs:
         with:
           python-version: "3.12"
       - name: 安装依赖
-        run: pip install requests numpy h5py pyhdf rasterio affine
+        run: pip install requests numpy h5py pyhdf rasterio affine remotezip
       - name: 获取ELITE FY-4A整日4km LST
         run: |
-          python worker.py --start-date "$START_ISO" --end-date "$END_ISO" --bbox "$ROI" --region-name "$REGION" --output-unit celsius
+          python worker.py --start-date "$ELITE_START_ISO" --end-date "$ELITE_END_ISO" --bbox "$ROI" --region-name "$REGION" --output-unit celsius
           mkdir -p bundle/elite bundle/meta
           cp -a output/derived/. bundle/elite/
           cp output/result.json bundle/meta/elite_result.json
@@ -150,8 +152,8 @@ jobs:
             "region": "Guilin",
             "date": "2022-08-24",
             "bbox_wgs84": [110.12447068021214, 24.99113120420509, 110.49277994670115, 25.341474165011704],
-            "elite": "ELITE FY-4A/AGRI hourly seamless 4 km LST from Zenodo record 10595576, 24 UTC hours",
-            "ancfds": "ANCFDS-LST 2022-08-24 available source hours 00-15 and 23 UTC; band 2 T_nadir is the canonical Stage-2 parent. TPDC source is missing 16-22 UTC, which are not needed for the Guilin Landsat target/daylight fit.",
+            "elite": "ELITE FY-4A/AGRI hourly seamless 4 km LST from Zenodo record 10595576; target-aligned 03:00 UTC extracted by HTTP Range from 202208.zip",
+            "ancfds": "ANCFDS-LST 2022-08-24 hours 00-10 UTC; band 2 T_nadir is the canonical Stage-2 parent. These are the daylight/target-relevant hours used by SA-XGBoost; TPDC source is missing 16-22 UTC and no missing source hour is fabricated.",
             "era5_land": "hourly, used only to construct permitted dynamic energy factors",
             "landsat": "Landsat 8/9 C2 L2 raw-valid-pixel validation; QA mask is applied downstream",
             "scaling_factors": "100 m terrain, WorldCover, Landsat spectral factors and MCD43A3 BSA/WSA",
