@@ -1,0 +1,99 @@
+name: Guilin historical Landsat C3 inputs
+
+on:
+  push:
+    branches:
+      - experiment/guilin-20220824-data
+    paths:
+      - ".github/workflows/guilin-historical-landsat-c3.yml"
+  workflow_dispatch:
+
+env:
+  ROI: "110.12447068021214,24.99113120420509,110.49277994670115,25.341474165011704"
+
+jobs:
+  landsat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        include:
+          - { key: d01, date: "2020-02-16", end: "2020-02-17" }
+          - { key: d02, date: "2020-04-27", end: "2020-04-28" }
+          - { key: d03, date: "2020-05-06", end: "2020-05-07" }
+          - { key: d04, date: "2020-09-02", end: "2020-09-03" }
+          - { key: d05, date: "2021-01-01", end: "2021-01-02" }
+          - { key: d06, date: "2021-04-30", end: "2021-05-01" }
+          - { key: d07, date: "2021-07-28", end: "2021-07-29" }
+          - { key: d08, date: "2021-09-21", end: "2021-09-22" }
+          - { key: d09, date: "2021-10-07", end: "2021-10-08" }
+          - { key: d10, date: "2021-12-03", end: "2021-12-04" }
+          - { key: d11, date: "2022-03-08", end: "2022-03-09" }
+          - { key: d12, date: "2022-04-09", end: "2022-04-10" }
+          - { key: d13, date: "2022-05-03", end: "2022-05-04" }
+          - { key: d14, date: "2022-07-23", end: "2022-07-24" }
+
+    env:
+      EE_PROJECT: "${{ vars.EE_PROJECT || 'ee-ygangxian' }}"
+      EE_USER_CREDENTIALS_JSON_BASE64: "${{ secrets.EE_USER_CREDENTIALS_JSON_BASE64 }}"
+      EE_SERVICE_ACCOUNT_JSON_BASE64: "${{ secrets.EE_SERVICE_ACCOUNT_JSON_BASE64 }}"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/guilin-20220824-data
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Restore Earth Engine auth
+        shell: bash
+        run: |
+          if [ -n "$EE_USER_CREDENTIALS_JSON_BASE64" ]; then
+            mkdir -p "$HOME/.config/earthengine"
+            printf '%s' "$EE_USER_CREDENTIALS_JSON_BASE64" | base64 --decode > "$HOME/.config/earthengine/credentials"
+            chmod 600 "$HOME/.config/earthengine/credentials"
+          elif [ -z "$EE_SERVICE_ACCOUNT_JSON_BASE64" ]; then
+            echo "::error::Missing Earth Engine credentials"
+            exit 1
+          fi
+
+      - name: Install
+        run: pip install earthengine-api google-auth requests numpy rasterio
+
+      - name: Fetch Landsat LST and QA
+        run: |
+          python landsat_worker.py \
+            --start-date "${{ matrix.date }}" \
+            --end-date "${{ matrix.end }}" \
+            --bbox "$ROI" \
+            --region-name "guilin-c3-${{ matrix.date }}" \
+            --satellites "L8,L9" \
+            --cloud-cover-max 80
+          mkdir -p "bundle/${{ matrix.date }}"
+          cp -a output/landsat/. "bundle/${{ matrix.date }}/"
+          cp output/result.json "bundle/${{ matrix.date }}/result.json"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: guilin-c3-landsat-${{ matrix.key }}-${{ matrix.date }}
+          path: bundle/**
+          retention-days: 3
+
+  assemble:
+    needs: landsat
+    if: always() && needs.landsat.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: guilin-c3-landsat-d*
+          path: combined
+          merge-multiple: true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: guilin-c3-landsat-all
+          path: combined/**
+          retention-days: 3
