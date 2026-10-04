@@ -23,14 +23,14 @@ jobs:
         include:
           - date: "2019-05-03"
             product_id: "LC08_L2SP_133033_20190503_20200828_02_T1"
-          - date: "2019-05-19"
-            product_id: "LC08_L2SP_133033_20190519_20200828_02_T1"
-          - date: "2019-07-22"
-            product_id: "LC08_L2SP_133033_20190722_20200827_02_T1"
+          - date: "2019-07-06"
+            product_id: "LC08_L2SP_133033_20190706_20200827_02_T1"
+          - date: "2019-08-14"
+            product_id: "LC08_L2SP_134033_20190814_20200827_02_T1"
           - date: "2019-09-15"
             product_id: "LC08_L2SP_134033_20190915_20200826_02_T1"
-          - date: "2019-10-26"
-            product_id: "LC08_L2SP_133033_20191026_20200825_02_T1"
+          - date: "2019-10-10"
+            product_id: "LC08_L2SP_133033_20191010_20200825_02_T1"
 
     env:
       EE_PROJECT: "${{ vars.EE_PROJECT || 'ee-ygangxian' }}"
