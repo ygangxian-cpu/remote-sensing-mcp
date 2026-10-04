@@ -1,151 +1,301 @@
 {
   "date": "2022-09-24",
-  "product": "MODIS/061/MOD11A1",
-  "platform": "terra",
   "bbox": [
     110.12447068021214,
     24.99113120420509,
     110.49277994670115,
     25.341474165011704
   ],
-  "file": "experiments/guilin_prevday_modis/Guilin_MOD11A1_20220924_LST_QA.tif",
-  "descriptions": [
-    "LST_DAY_C",
-    "LST_NIGHT_C",
-    "DAY_VIEW_TIME_LOCAL_H",
-    "NIGHT_VIEW_TIME_LOCAL_H",
-    "QC_DAY",
-    "QC_NIGHT"
-  ],
-  "shape": [
-    39,
-    41
-  ],
-  "crs": "EPSG:4326",
-  "bounds": [
-    110.12447068021214,
-    24.99113120420509,
-    110.49277994670115,
-    25.341474165011704
-  ],
-  "tags": {
-    "cache_version": "v2",
-    "dataset": "MODIS/061/MOD11A1",
-    "date": "2022-09-24",
-    "download_mask": "native product availability only; no additional research QA mask",
-    "lst_conversion": "DN*0.02-273.15",
-    "platform": "terra",
-    "recommended_strict_qc": "bits0-1<=1; bits2-3==0; bits6-7<=2",
-    "AREA_OR_POINT": "Area"
-  },
-  "details": {
-    "path": "experiments/guilin_prevday_modis/Guilin_MOD11A1_20220924_LST_QA.tif",
-    "size_bytes": 4110,
-    "width": 41,
-    "height": 39,
-    "crs": "EPSG:4326",
-    "stats": {
-      "LST_DAY_C": {
-        "unit": "degC",
-        "valid_pixels": 5,
-        "min": 24.1299991607666,
-        "max": 24.1299991607666,
-        "mean": 24.1299991607666
+  "products": [
+    {
+      "platform": "terra",
+      "product": "MOD11A1",
+      "status": "ok",
+      "file": "experiments/guilin_prevday_modis/Guilin_MOD11A1_20220924_LST_QA.tif",
+      "descriptions": [
+        "LST_DAY_C",
+        "LST_NIGHT_C",
+        "DAY_VIEW_TIME_LOCAL_H",
+        "NIGHT_VIEW_TIME_LOCAL_H",
+        "QC_DAY",
+        "QC_NIGHT"
+      ],
+      "shape": [
+        39,
+        41
+      ],
+      "crs": "EPSG:4326",
+      "bounds": [
+        110.12447068021214,
+        24.99113120420509,
+        110.49277994670115,
+        25.341474165011704
+      ],
+      "tags": {
+        "cache_version": "v2",
+        "dataset": "MODIS/061/MOD11A1",
+        "date": "2022-09-24",
+        "download_mask": "native product availability only; no additional research QA mask",
+        "lst_conversion": "DN*0.02-273.15",
+        "platform": "terra",
+        "recommended_strict_qc": "bits0-1<=1; bits2-3==0; bits6-7<=2",
+        "AREA_OR_POINT": "Area"
       },
-      "LST_NIGHT_C": {
-        "unit": "degC",
-        "valid_pixels": 0,
-        "min": null,
-        "max": null,
-        "mean": null
-      },
-      "DAY_VIEW_TIME_LOCAL_H": {
-        "unit": "hour_local_solar_time",
-        "valid_pixels": 5,
-        "min": 9.800000190734863,
-        "max": 9.800000190734863,
-        "mean": 9.800000190734863
-      },
-      "NIGHT_VIEW_TIME_LOCAL_H": {
-        "unit": "hour_local_solar_time",
-        "valid_pixels": 0,
-        "min": null,
-        "max": null,
-        "mean": null
-      },
-      "QC_DAY": {
-        "unit": "raw_qc_bitfield",
-        "valid_pixels": 1599,
-        "min": 2.0,
-        "max": 65.0,
-        "mean": 2.196998119354248
-      },
-      "QC_NIGHT": {
-        "unit": "raw_qc_bitfield",
-        "valid_pixels": 1599,
-        "min": 2.0,
-        "max": 2.0,
-        "mean": 2.0
+      "details": {
+        "path": "experiments/guilin_prevday_modis/Guilin_MOD11A1_20220924_LST_QA.tif",
+        "size_bytes": 4110,
+        "width": 41,
+        "height": 39,
+        "crs": "EPSG:4326",
+        "stats": {
+          "LST_DAY_C": {
+            "unit": "degC",
+            "valid_pixels": 5,
+            "min": 24.1299991607666,
+            "max": 24.1299991607666,
+            "mean": 24.1299991607666
+          },
+          "LST_NIGHT_C": {
+            "unit": "degC",
+            "valid_pixels": 0,
+            "min": null,
+            "max": null,
+            "mean": null
+          },
+          "DAY_VIEW_TIME_LOCAL_H": {
+            "unit": "hour_local_solar_time",
+            "valid_pixels": 5,
+            "min": 9.800000190734863,
+            "max": 9.800000190734863,
+            "mean": 9.800000190734863
+          },
+          "NIGHT_VIEW_TIME_LOCAL_H": {
+            "unit": "hour_local_solar_time",
+            "valid_pixels": 0,
+            "min": null,
+            "max": null,
+            "mean": null
+          },
+          "QC_DAY": {
+            "unit": "raw_qc_bitfield",
+            "valid_pixels": 1599,
+            "min": 2.0,
+            "max": 65.0,
+            "mean": 2.196998119354248
+          },
+          "QC_NIGHT": {
+            "unit": "raw_qc_bitfield",
+            "valid_pixels": 1599,
+            "min": 2.0,
+            "max": 2.0,
+            "mean": 2.0
+          }
+        },
+        "quality_summary": {
+          "total_pixels": 1599,
+          "day": {
+            "native_lst_valid_pixels": 5,
+            "native_lst_valid_ratio": 0.003127,
+            "qc_available_pixels": 1599,
+            "product_generated_pixels": 5,
+            "product_generated_ratio": 0.003127,
+            "strict_research_qc_pixels": 5,
+            "strict_research_qc_ratio": 0.003127,
+            "strict_retention_of_native": 1.0,
+            "mandatory_qa_counts": {
+              "0": 0,
+              "1": 5,
+              "2": 1594,
+              "3": 0
+            },
+            "data_quality_counts": {
+              "0": 1599,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "lst_error_class_counts": {
+              "0": 1594,
+              "1": 5,
+              "2": 0,
+              "3": 0
+            }
+          },
+          "night": {
+            "native_lst_valid_pixels": 0,
+            "native_lst_valid_ratio": 0.0,
+            "qc_available_pixels": 1599,
+            "product_generated_pixels": 0,
+            "product_generated_ratio": 0.0,
+            "strict_research_qc_pixels": 0,
+            "strict_research_qc_ratio": 0.0,
+            "strict_retention_of_native": 0.0,
+            "mandatory_qa_counts": {
+              "0": 0,
+              "1": 0,
+              "2": 1599,
+              "3": 0
+            },
+            "data_quality_counts": {
+              "0": 1599,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "lst_error_class_counts": {
+              "0": 1599,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            }
+          }
+        }
       }
     },
-    "quality_summary": {
-      "total_pixels": 1599,
-      "day": {
-        "native_lst_valid_pixels": 5,
-        "native_lst_valid_ratio": 0.003127,
-        "qc_available_pixels": 1599,
-        "product_generated_pixels": 5,
-        "product_generated_ratio": 0.003127,
-        "strict_research_qc_pixels": 5,
-        "strict_research_qc_ratio": 0.003127,
-        "strict_retention_of_native": 1.0,
-        "mandatory_qa_counts": {
-          "0": 0,
-          "1": 5,
-          "2": 1594,
-          "3": 0
-        },
-        "data_quality_counts": {
-          "0": 1599,
-          "1": 0,
-          "2": 0,
-          "3": 0
-        },
-        "lst_error_class_counts": {
-          "0": 1594,
-          "1": 5,
-          "2": 0,
-          "3": 0
-        }
+    {
+      "platform": "aqua",
+      "product": "MYD11A1",
+      "status": "ok",
+      "file": "experiments/guilin_prevday_modis/Guilin_MYD11A1_20220924_LST_QA.tif",
+      "descriptions": [
+        "LST_DAY_C",
+        "LST_NIGHT_C",
+        "DAY_VIEW_TIME_LOCAL_H",
+        "NIGHT_VIEW_TIME_LOCAL_H",
+        "QC_DAY",
+        "QC_NIGHT"
+      ],
+      "shape": [
+        39,
+        41
+      ],
+      "crs": "EPSG:4326",
+      "bounds": [
+        110.12447068021214,
+        24.99113120420509,
+        110.49277994670115,
+        25.341474165011704
+      ],
+      "tags": {
+        "cache_version": "v2",
+        "dataset": "MODIS/061/MYD11A1",
+        "date": "2022-09-24",
+        "download_mask": "native product availability only; no additional research QA mask",
+        "lst_conversion": "DN*0.02-273.15",
+        "platform": "aqua",
+        "recommended_strict_qc": "bits0-1<=1; bits2-3==0; bits6-7<=2",
+        "AREA_OR_POINT": "Area"
       },
-      "night": {
-        "native_lst_valid_pixels": 0,
-        "native_lst_valid_ratio": 0.0,
-        "qc_available_pixels": 1599,
-        "product_generated_pixels": 0,
-        "product_generated_ratio": 0.0,
-        "strict_research_qc_pixels": 0,
-        "strict_research_qc_ratio": 0.0,
-        "strict_retention_of_native": 0.0,
-        "mandatory_qa_counts": {
-          "0": 0,
-          "1": 0,
-          "2": 1599,
-          "3": 0
+      "details": {
+        "path": "experiments/guilin_prevday_modis/Guilin_MYD11A1_20220924_LST_QA.tif",
+        "size_bytes": 4025,
+        "width": 41,
+        "height": 39,
+        "crs": "EPSG:4326",
+        "stats": {
+          "LST_DAY_C": {
+            "unit": "degC",
+            "valid_pixels": 0,
+            "min": null,
+            "max": null,
+            "mean": null
+          },
+          "LST_NIGHT_C": {
+            "unit": "degC",
+            "valid_pixels": 0,
+            "min": null,
+            "max": null,
+            "mean": null
+          },
+          "DAY_VIEW_TIME_LOCAL_H": {
+            "unit": "hour_local_solar_time",
+            "valid_pixels": 0,
+            "min": null,
+            "max": null,
+            "mean": null
+          },
+          "NIGHT_VIEW_TIME_LOCAL_H": {
+            "unit": "hour_local_solar_time",
+            "valid_pixels": 0,
+            "min": null,
+            "max": null,
+            "mean": null
+          },
+          "QC_DAY": {
+            "unit": "raw_qc_bitfield",
+            "valid_pixels": 1599,
+            "min": 2.0,
+            "max": 2.0,
+            "mean": 2.0
+          },
+          "QC_NIGHT": {
+            "unit": "raw_qc_bitfield",
+            "valid_pixels": 1599,
+            "min": 2.0,
+            "max": 2.0,
+            "mean": 2.0
+          }
         },
-        "data_quality_counts": {
-          "0": 1599,
-          "1": 0,
-          "2": 0,
-          "3": 0
-        },
-        "lst_error_class_counts": {
-          "0": 1599,
-          "1": 0,
-          "2": 0,
-          "3": 0
+        "quality_summary": {
+          "total_pixels": 1599,
+          "day": {
+            "native_lst_valid_pixels": 0,
+            "native_lst_valid_ratio": 0.0,
+            "qc_available_pixels": 1599,
+            "product_generated_pixels": 0,
+            "product_generated_ratio": 0.0,
+            "strict_research_qc_pixels": 0,
+            "strict_research_qc_ratio": 0.0,
+            "strict_retention_of_native": 0.0,
+            "mandatory_qa_counts": {
+              "0": 0,
+              "1": 0,
+              "2": 1599,
+              "3": 0
+            },
+            "data_quality_counts": {
+              "0": 1599,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "lst_error_class_counts": {
+              "0": 1599,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            }
+          },
+          "night": {
+            "native_lst_valid_pixels": 0,
+            "native_lst_valid_ratio": 0.0,
+            "qc_available_pixels": 1599,
+            "product_generated_pixels": 0,
+            "product_generated_ratio": 0.0,
+            "strict_research_qc_pixels": 0,
+            "strict_research_qc_ratio": 0.0,
+            "strict_retention_of_native": 0.0,
+            "mandatory_qa_counts": {
+              "0": 0,
+              "1": 0,
+              "2": 1599,
+              "3": 0
+            },
+            "data_quality_counts": {
+              "0": 1599,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "lst_error_class_counts": {
+              "0": 1599,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            }
+          }
         }
       }
     }
-  }
+  ]
 }
