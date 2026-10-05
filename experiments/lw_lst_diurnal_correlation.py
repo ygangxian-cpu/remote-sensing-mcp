@@ -177,6 +177,9 @@ def main() -> None:
 
     rows = []
     spatial_rows = []
+    # Keep representative 1-km fields for spatial diagnostics: morning/noon/evening/night.
+    map_hours = {0, 4, 8, 14, 18, 22}
+    map_fields = {}
     for h in range(24):
         era_path = ERA5_DIR / f"ERA5LAND_20190924_{h:02d}00_UTC.tif"
         lst_path = ANCFDS_DIR / f"ANCFDS_FY4A_20190924_{h:02d}00_C.tif"
@@ -205,6 +208,13 @@ def main() -> None:
             "lw_abs_mean_wm2": float(np.nanmean(lw_abs100)),
             "lw_abs_svf_sky_mean_wm2": float(np.nanmean(lw_sky_svf100)),
         })
+        if h in map_hours:
+            map_fields[h] = {
+                "lst": lst.copy(),
+                "lw_abs": lw1.copy(),
+                "swdown": sw1.copy(),
+            }
+
         spatial_rows.append({
             "hour_utc": h,
             "hour_bjt": (h + 8) % 24,
@@ -313,6 +323,48 @@ def main() -> None:
     ax.legend()
     ax.grid(axis="y", alpha=0.2)
     fig.savefig(out / "temporal_correlation_day_night.png", dpi=220, facecolor="white")
+    plt.close(fig)
+
+    # Spatial maps at six representative hours. Rows are time; columns are
+    # LST / absorbed longwave / shortwave. Each variable uses a common color
+    # range across the six hours, so temporal evolution remains comparable.
+    hrs = sorted(map_fields)
+    lst_stack = np.stack([map_fields[h]["lst"] for h in hrs])
+    lw_stack = np.stack([map_fields[h]["lw_abs"] for h in hrs])
+    sw_stack = np.stack([map_fields[h]["swdown"] for h in hrs])
+    stacks = [lst_stack, lw_stack, sw_stack]
+    titles = ["ANCFDS T_nadir (°C)", "LW_abs (W m⁻²)", "SWDOWN (W m⁻²)"]
+    fig, axes = plt.subplots(len(hrs), 3, figsize=(13, 18), constrained_layout=True)
+    for j, (stack, title) in enumerate(zip(stacks, titles)):
+        vals = stack[np.isfinite(stack)]
+        vmin, vmax = np.nanpercentile(vals, [2, 98])
+        last_im = None
+        for i, h in enumerate(hrs):
+            last_im = axes[i, j].imshow(stack[i], vmin=vmin, vmax=vmax)
+            if i == 0:
+                axes[i, j].set_title(title)
+            if j == 0:
+                axes[i, j].set_ylabel(f"{h:02d}:00 UTC / {(h+8)%24:02d}:00 BJT")
+            axes[i, j].set_xticks([]); axes[i, j].set_yticks([])
+        fig.colorbar(last_im, ax=axes[:, j], shrink=0.65, pad=0.02)
+    fig.suptitle("2019-09-24 spatial evolution: LST vs longwave and shortwave", fontsize=14)
+    fig.savefig(out / "spatial_maps_six_times.png", dpi=220, facecolor="white")
+    plt.close(fig)
+
+    # Per-hour spatial correlation curve makes the day/night transition explicit.
+    fig, ax = plt.subplots(figsize=(11, 5.5), constrained_layout=True)
+    xb = sdf["hour_bjt"].to_numpy(int)
+    oo = np.argsort(xb)
+    ax.plot(xb[oo], sdf["r_spatial_lw_abs_vs_lst"].to_numpy()[oo], marker="o", label="LW_abs vs LST")
+    ax.plot(xb[oo], sdf["r_spatial_swdown_vs_lst"].to_numpy()[oo], marker="o", label="SWDOWN vs LST")
+    ax.axhline(0, linewidth=0.8)
+    ax.set_xlabel("Beijing time (UTC+8)")
+    ax.set_ylabel("spatial Pearson r (1 km)")
+    ax.set_ylim(-1, 1)
+    ax.set_title("Hourly spatial correlation with ANCFDS T_nadir")
+    ax.grid(alpha=0.2)
+    ax.legend()
+    fig.savefig(out / "spatial_correlation_hourly.png", dpi=220, facecolor="white")
     plt.close(fig)
 
     print(json.dumps(summary, ensure_ascii=False, indent=2))
