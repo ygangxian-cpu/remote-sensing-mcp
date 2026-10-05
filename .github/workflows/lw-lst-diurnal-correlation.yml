@@ -1,0 +1,79 @@
+name: LW-LST diurnal correlation experiment
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - experiment/lw-lst-diurnal-correlation
+    paths:
+      - "experiments/lw_lst_diurnal_correlation.py"
+      - ".github/workflows/lw-lst-diurnal-correlation.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout experiment branch
+        uses: actions/checkout@v4
+        with:
+          ref: experiment/lw-lst-diurnal-correlation
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install analysis dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pandas rasterio matplotlib
+
+      - name: Verify cached 24-hour inputs
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          era = Path("data/era5_land/v1/zhangye-formal-buffered-4ba50c0b09/2019/09/24")
+          anc = Path("data/tpdc_ancfds/v1/zhangye-2e599e4070/2019/09/24")
+          e = list(era.glob("ERA5LAND_20190924_*_UTC.tif"))
+          a = list(anc.glob("ANCFDS_FY4A_20190924_*_C.tif"))
+          print("ERA5-Land hourly files:", len(e))
+          print("ANCFDS hourly files:", len(a))
+          assert len(e) == 24, f"expected 24 ERA5 files, got {len(e)}"
+          assert len(a) == 24, f"expected 24 ANCFDS files, got {len(a)}"
+          PY
+
+      - name: Run LW-LST correlation experiment
+        run: |
+          python experiments/lw_lst_diurnal_correlation.py \
+            --svf-max-distance-m 5000 \
+            --svf-azimuths 8
+
+      - name: Print key numerical results
+        if: always()
+        run: |
+          if [ -f output/experiments/lw_lst_diurnal_correlation/summary.json ]; then
+            cat output/experiments/lw_lst_diurnal_correlation/summary.json
+          fi
+
+      # Keep Actions storage at zero for this experiment: commit the small
+      # numerical/PNG results to the isolated experiment branch instead of
+      # uploading a GitHub Actions artifact.
+      - name: Commit experiment results to branch
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f output/experiments/lw_lst_diurnal_correlation/
+          if git diff --cached --quiet; then
+            echo "No result changes to commit."
+          else
+            git commit -m "experiment: save LW-LST correlation results [skip ci]"
+            git push origin HEAD:experiment/lw-lst-diurnal-correlation
+          fi
