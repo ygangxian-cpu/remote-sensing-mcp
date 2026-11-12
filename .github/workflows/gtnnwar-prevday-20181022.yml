@@ -1,0 +1,112 @@
+name: GTNNWAR Previous Day MODIS 2018-10-22 Comparison
+run-name: GTNNWAR Zhangye MODIS 22 vs 23 Oct 2018
+on:
+  push:
+    branches: [repro/gtnnwar]
+    paths:
+      - '.github/workflows/gtnnwar-prevday-20181022.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  previous-day:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      EE_PROJECT: ${{ vars.EE_PROJECT || 'ee-ygangxian' }}
+      EE_USER_CREDENTIALS_JSON_BASE64: ${{ secrets.EE_USER_CREDENTIALS_JSON_BASE64 }}
+      EE_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.EE_SERVICE_ACCOUNT_JSON_BASE64 }}
+      LAADS_TOKEN: ${{ secrets.LAADS_TOKEN }}
+      EARTHDATA_TOKEN: ${{ secrets.EARTHDATA_TOKEN }}
+      NASA_EARTHDATA_TOKEN: ${{ secrets.NASA_EARTHDATA_TOKEN }}
+      EDL_TOKEN: ${{ secrets.EDL_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Earth Engine and NASA raster dependencies
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libhdf4-dev || true
+          python -m pip install earthengine-api google-auth requests numpy scipy rasterio matplotlib pyhdf
+
+      - name: Restore existing Earth Engine authentication
+        shell: bash
+        run: |
+          if [ -n "$EE_USER_CREDENTIALS_JSON_BASE64" ]; then
+            mkdir -p "$HOME/.config/earthengine"
+            printf '%s' "$EE_USER_CREDENTIALS_JSON_BASE64" | base64 --decode > "$HOME/.config/earthengine/credentials"
+            chmod 600 "$HOME/.config/earthengine/credentials"
+          elif [ -z "$EE_SERVICE_ACCOUNT_JSON_BASE64" ]; then
+            echo "::warning::Missing Earth Engine authentication, daily MODIS may fail"
+          fi
+
+      - name: Acquire MOD11A1 2018-10-22
+        shell: bash
+        run: |
+          mkdir -p results/gtnnwar-zhangye-20181023
+          R=results/gtnnwar-zhangye-20181023
+          python modis_worker.py \
+            --start-date 2018-10-22 --end-date 2018-10-23 \
+            --bbox '100.188333,38.6975,100.767778,39.150278' \
+            --region-name gtnnwar-zhangye-20181022 \
+            --platforms terra > "$R/modis_daily_20181022.log" 2>&1 || echo "failed" > "$R/modis_daily_20181022.error"
+          if [ -f output/result.json ]; then
+            cp output/result.json "$R/modis_daily_20181022_result.json"
+            rm output/result.json
+          fi
+
+      - name: Acquire original Terra MOD11_L2 2018-10-22 with verified ROI intersection
+        shell: bash
+        run: |
+          R=results/gtnnwar-zhangye-20181023
+          python modis_l2_swath_worker.py \
+            --date 2018-10-22 \
+            --bbox '100.188333,38.6975,100.767778,39.150278' \
+            --region-name gtnnwar-zhangye-20181022 \
+            --platform terra --target-time-utc 03:20 \
+            --time-window-minutes 100 --output-unit celsius \
+            > "$R/modis_l2_20181022.log" 2>&1 || echo "failed" > "$R/modis_l2_20181022.error"
+          if [ -f output/result.json ]; then
+            cp output/result.json "$R/modis_l2_20181022_result.json"
+            rm output/result.json
+          fi
+
+      - name: Render 5 observation panels and Landsat aggregated-grid statistics
+        shell: bash
+        run: |
+          python scripts/compare_gtnnwar_20181022_23.py | tee results/gtnnwar-zhangye-20181023/analysis_output.log
+
+      - name: Commit independent experiment output
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add results/gtnnwar-zhangye-20181023 data/modis_lst data/modis_l2_swath data/metadata/modis-lst-index.json || true
+          if ! git diff --cached --quiet; then
+            git commit -m 'data: compare 22 and 23 Oct MODIS L2 and A1 in Zhangye [skip ci]'
+            git pull --rebase origin repro/gtnnwar
+            git push origin HEAD:repro/gtnnwar
+          fi
+
+      - name: Publish downloadable comparison (temporary artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gtnnwar-zhangye-modis-20181022-vs-23
+          path: |
+            results/gtnnwar-zhangye-20181023/**
+            output/modis_lst/**/*.tif
+            output/modis_l2_swath/**/*.tif
+            output/modis_l2_swath/**/*.hdf
+          retention-days: 30
+          if-no-files-found: warn
