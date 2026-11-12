@@ -72,9 +72,9 @@ jobs:
           R=Path('results/gtnnwar-zhangye-20181023')
           R.mkdir(parents=True,exist_ok=True)
           specs=[
-            ('MOD11_L2 swath (1 km)','output/modis_l2_swath/**/*.tif',1,None),
-            ('MOD11A1 Terra daily (1 km)','output/modis_lst/**/*.tif',1,None),
-            ('Landsat 8 C2 L2 LST (30m grid)','output/landsat/**/*.tif',1,'landsat'),
+            ('MOD11_L2 (03:24 UTC)','output/modis_l2_swath/**/*.tif',1,None),
+            ('MOD11A1 (approx 05:03 UTC)','output/modis_lst/**/*.tif',1,None),
+            ('Landsat 8 C2 L2 (03:55 UTC)','output/landsat/**/*.tif',1,'landsat'),
           ]
           imgs=[];report={}
           for title,pattern,band,kind in specs:
@@ -127,7 +127,7 @@ jobs:
           if valid_sets:
             sm=plt.cm.ScalarMappable(cmap='RdYlGn_r',norm=plt.Normalize(vmin=lo,vmax=hi))
             fig.colorbar(sm,ax=ax,location='bottom',shrink=0.68,aspect=45,pad=0.10,label='Land surface temperature (°C), common color scale')
-          fig.suptitle('GTNNWAR paper Zhangye ROI | 23 October 2018 | actual satellite rasters',fontsize=14)
+          fig.suptitle('Zhangye study area | 23 Oct 2018 | original satellite LST',fontsize=14,y=1.09)
           fig.savefig(R/'observations_20181023.png',dpi=160,bbox_inches='tight')
           fig.savefig(R/'observations_20181023.jpg',dpi=135,bbox_inches='tight',quality=85) if False else None
           plt.close(fig)
