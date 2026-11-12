@@ -2,7 +2,7 @@ name: GTNNWAR Figure 9 Two-Panel Paper Kelvin Scale
 on:
   push:
     branches: [repro/gtnnwar]
-    paths: ['.github/workflows/gtnnwar-two-panel-paperscale.yml']
+    paths: ['.github/workflows/gtnnwar-two-panel-paperscale.yml', 'scripts/plot_gtnnwar_two_panel_paperscale.py']
 permissions:
   contents: write
 jobs:
