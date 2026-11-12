@@ -52,14 +52,14 @@ l2=raster(l2_path,False)
 colors=[(0,"#008f00"),(.25,"#62bf00"),(.5,"#e6eb00"),(.75,"#ff9c00"),(.9,"#ff4200"),(1,"#da0303")]
 cmap=LinearSegmentedColormap.from_list("paper_approx",colors,N=256)
 cmap.set_bad("#f3f3f3")
-fig,ax=plt.subplots(1,2,figsize=(12,6),layout="constrained")
+fig,ax=plt.subplots(1,2,figsize=(12,5.5),layout="constrained")
 for a,d,ttl in [
     (ax[0],land,"(a) Landsat 8 C2 L2 | 2018-10-23 03:55 UTC"),
     (ax[1],l2,"(b) Terra MOD11_L2 | 2018-10-22 04:18 UTC"),
 ]:
     im=a.imshow(d["a"],origin="upper",extent=d["extent"],
                 cmap=cmap,vmin=280,vmax=312,interpolation="nearest")
-    a.set_title(ttl,fontsize=12,pad=12)
+    a.set_title(ttl,fontsize=11,pad=8)
     a.set_xlim(roi[0],roi[2]);a.set_ylim(roi[1],roi[3])
     a.set_xlabel("Longitude (°E)")
     a.set_ylabel("Latitude (°N)")
@@ -68,11 +68,7 @@ for a,d,ttl in [
            bbox=dict(facecolor="white",alpha=.85,edgecolor="none",pad=3))
 cb=fig.colorbar(im,ax=ax.ravel().tolist(),orientation="horizontal",
                 ticks=[280,288,296,304,312],pad=.075,shrink=.77,aspect=32)
-cb.set_label("Land surface temperature (K) | paper Fig. 9 range")
-fig.suptitle("Zhangye study area: two satellite images on the paper's LST scale",
-             fontsize=14)
-fig.text(.5,.004,"Paper palette approximated | MODIS from the previous day, not a time-matched observation",
-         ha="center",fontsize=9,color="#444444")
+cb.set_label("LST (K) | identical 280-312 K range as paper Fig. 9")
 png=ROOT/"landsat23_vs_modis_l2_22_paper_scale.png"
 fig.savefig(png,dpi=160,facecolor="white",bbox_inches="tight")
 plt.close(fig)
