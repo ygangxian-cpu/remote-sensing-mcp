@@ -2,6 +2,25 @@
   "cache_version": "v3",
   "product": "Landsat 8/9 C2 L2",
   "regions": {
+    "gtnnwar-zhangye-20181023-a5d90c376e": {
+      "bbox": [
+        100.188333,
+        38.6975,
+        100.767778,
+        39.150278
+      ],
+      "region_name": "gtnnwar-zhangye-20181023",
+      "scenes": {
+        "LC08_L2SP_133033_20181023_20200830_02_T1": {
+          "acquired_utc": "2018-10-23T03:55:36.065000Z",
+          "cloud_cover": 2.89,
+          "path": "data/landsat_c2_l2/v3/gtnnwar-zhangye-20181023-a5d90c376e/2018/10/23/LC08_L2SP_133033_20181023_20200830_02_T1_L2_LST_QA.tif",
+          "product_id": "LC08_L2SP_133033_20181023_20200830_02_T1",
+          "scene_id": "LC81330332018296LGN00",
+          "spacecraft": "LANDSAT_8"
+        }
+      }
+    },
     "zhangye-2e599e4070": {
       "bbox": [
         99.86,
@@ -57,5 +76,5 @@
       }
     }
   },
-  "updated_at": "2026-10-01T03:09:50.978851Z"
+  "updated_at": "2026-11-12T09:14:04.767503Z"
 }

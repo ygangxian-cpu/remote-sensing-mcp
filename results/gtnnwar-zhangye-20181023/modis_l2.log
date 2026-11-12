@@ -1,0 +1,554 @@
+{
+  "product": "MOD11_L2",
+  "collection": "061",
+  "source": "NASA LAADS DAAC",
+  "source_root": "https://ladsweb.modaps.eosdis.nasa.gov/archive/allData/61",
+  "date": "2018-10-23",
+  "platform": "terra",
+  "bbox": [
+    100.188333,
+    38.6975,
+    100.767778,
+    39.150278
+  ],
+  "region_name": "gtnnwar-zhangye-20181023",
+  "target_time_utc": "04:00",
+  "time_window_minutes": 100,
+  "output_unit": "celsius",
+  "resolution_deg": 0.01,
+  "archive_listing_count": 242,
+  "candidate_granules": [
+    {
+      "filename": "MOD11_L2.A2018296.0400.061.2021350112157.hdf",
+      "hhmm": "0400",
+      "minute_of_day": 240,
+      "target_offset_minutes": 0
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0355.061.2021350112133.hdf",
+      "hhmm": "0355",
+      "minute_of_day": 235,
+      "target_offset_minutes": 5
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0405.061.2021350104734.hdf",
+      "hhmm": "0405",
+      "minute_of_day": 245,
+      "target_offset_minutes": 5
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0350.061.2021350104722.hdf",
+      "hhmm": "0350",
+      "minute_of_day": 230,
+      "target_offset_minutes": 10
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0410.061.2021350104753.hdf",
+      "hhmm": "0410",
+      "minute_of_day": 250,
+      "target_offset_minutes": 10
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0415.061.2021350111322.hdf",
+      "hhmm": "0415",
+      "minute_of_day": 255,
+      "target_offset_minutes": 15
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0420.061.2021350111330.hdf",
+      "hhmm": "0420",
+      "minute_of_day": 260,
+      "target_offset_minutes": 20
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0335.061.2021350111312.hdf",
+      "hhmm": "0335",
+      "minute_of_day": 215,
+      "target_offset_minutes": 25
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0425.061.2021350103456.hdf",
+      "hhmm": "0425",
+      "minute_of_day": 265,
+      "target_offset_minutes": 25
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0330.061.2021350103446.hdf",
+      "hhmm": "0330",
+      "minute_of_day": 210,
+      "target_offset_minutes": 30
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0430.061.2021350103507.hdf",
+      "hhmm": "0430",
+      "minute_of_day": 270,
+      "target_offset_minutes": 30
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0325.061.2021350103427.hdf",
+      "hhmm": "0325",
+      "minute_of_day": 205,
+      "target_offset_minutes": 35
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0435.061.2021350112723.hdf",
+      "hhmm": "0435",
+      "minute_of_day": 275,
+      "target_offset_minutes": 35
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0320.061.2021350112641.hdf",
+      "hhmm": "0320",
+      "minute_of_day": 200,
+      "target_offset_minutes": 40
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0440.061.2021350103348.hdf",
+      "hhmm": "0440",
+      "minute_of_day": 280,
+      "target_offset_minutes": 40
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0315.061.2021350103331.hdf",
+      "hhmm": "0315",
+      "minute_of_day": 195,
+      "target_offset_minutes": 45
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0445.061.2021350103409.hdf",
+      "hhmm": "0445",
+      "minute_of_day": 285,
+      "target_offset_minutes": 45
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0310.061.2021350103303.hdf",
+      "hhmm": "0310",
+      "minute_of_day": 190,
+      "target_offset_minutes": 50
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0450.061.2021350103425.hdf",
+      "hhmm": "0450",
+      "minute_of_day": 290,
+      "target_offset_minutes": 50
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0305.061.2021350103243.hdf",
+      "hhmm": "0305",
+      "minute_of_day": 185,
+      "target_offset_minutes": 55
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0455.061.2021350103504.hdf",
+      "hhmm": "0455",
+      "minute_of_day": 295,
+      "target_offset_minutes": 55
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0300.061.2021350112442.hdf",
+      "hhmm": "0300",
+      "minute_of_day": 180,
+      "target_offset_minutes": 60
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0500.061.2021350112921.hdf",
+      "hhmm": "0500",
+      "minute_of_day": 300,
+      "target_offset_minutes": 60
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0255.061.2021350112419.hdf",
+      "hhmm": "0255",
+      "minute_of_day": 175,
+      "target_offset_minutes": 65
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0505.061.2021350103544.hdf",
+      "hhmm": "0505",
+      "minute_of_day": 305,
+      "target_offset_minutes": 65
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0250.061.2021350103342.hdf",
+      "hhmm": "0250",
+      "minute_of_day": 170,
+      "target_offset_minutes": 70
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0510.061.2021350103559.hdf",
+      "hhmm": "0510",
+      "minute_of_day": 310,
+      "target_offset_minutes": 70
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0245.061.2021350103334.hdf",
+      "hhmm": "0245",
+      "minute_of_day": 165,
+      "target_offset_minutes": 75
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0240.061.2021350111255.hdf",
+      "hhmm": "0240",
+      "minute_of_day": 160,
+      "target_offset_minutes": 80
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0235.061.2021350111244.hdf",
+      "hhmm": "0235",
+      "minute_of_day": 155,
+      "target_offset_minutes": 85
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0525.061.2021350104807.hdf",
+      "hhmm": "0525",
+      "minute_of_day": 325,
+      "target_offset_minutes": 85
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0230.061.2021350104623.hdf",
+      "hhmm": "0230",
+      "minute_of_day": 150,
+      "target_offset_minutes": 90
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0530.061.2021350112227.hdf",
+      "hhmm": "0530",
+      "minute_of_day": 330,
+      "target_offset_minutes": 90
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0225.061.2021350112038.hdf",
+      "hhmm": "0225",
+      "minute_of_day": 145,
+      "target_offset_minutes": 95
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0535.061.2021350112321.hdf",
+      "hhmm": "0535",
+      "minute_of_day": 335,
+      "target_offset_minutes": 95
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0220.061.2021350112019.hdf",
+      "hhmm": "0220",
+      "minute_of_day": 140,
+      "target_offset_minutes": 100
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0540.061.2021350112337.hdf",
+      "hhmm": "0540",
+      "minute_of_day": 340,
+      "target_offset_minutes": 100
+    }
+  ],
+  "auth_token_present": true,
+  "status": "success",
+  "selected_granule": {
+    "filename": "MOD11_L2.A2018296.0320.061.2021350112641.hdf",
+    "hhmm": "0320",
+    "minute_of_day": 200,
+    "target_offset_minutes": 40
+  },
+  "cache_path": "data/modis_l2_swath/v1/gtnnwar-zhangye-20181023-a5d90c376e/2018/10/23/MOD11_L2_20181023_0320_UTC_C.tif",
+  "artifact_path": "output/modis_l2_swath/gtnnwar-zhangye-20181023-a5d90c376e/MOD11_L2_20181023_0320_UTC_C.tif",
+  "raw_hdf_artifact": "output/modis_l2_swath/gtnnwar-zhangye-20181023-a5d90c376e/MOD11_L2.A2018296.0320.061.2021350112641.hdf",
+  "details": {
+    "path": "data/modis_l2_swath/v1/gtnnwar-zhangye-20181023-a5d90c376e/2018/10/23/MOD11_L2_20181023_0320_UTC_C.tif",
+    "size_bytes": 18126,
+    "width": 58,
+    "height": 46,
+    "crs": "EPSG:4326",
+    "resolution_deg": 0.01,
+    "native_lst_valid_pixels": 2373,
+    "native_lst_valid_ratio": 0.8894302848575713,
+    "strict_qc_pixels": 2373,
+    "strict_qc_ratio": 0.8894302848575713,
+    "strict_retention_of_native": 1.0,
+    "view_time_local_h_mean": 10.099998474121094,
+    "view_time_utc_h_mean": 3.400615692138672,
+    "lst_mean": 19.148761749267578,
+    "lst_std": 1.9424121379852295
+  },
+  "attempts": [
+    {
+      "filename": "MOD11_L2.A2018296.0400.061.2021350112157.hdf",
+      "hhmm": "0400",
+      "minute_of_day": 240,
+      "target_offset_minutes": 0,
+      "downloaded_bytes": 2976010,
+      "swath_shape": [
+        2030,
+        1354
+      ],
+      "lat_range": [
+        -89.96733856201172,
+        -64.16278076171875
+      ],
+      "lon_range": [
+        -179.95448303222656,
+        179.8196563720703
+      ],
+      "covers_roi": false
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0355.061.2021350112133.hdf",
+      "hhmm": "0355",
+      "minute_of_day": 235,
+      "target_offset_minutes": 5,
+      "downloaded_bytes": 4608775,
+      "swath_shape": [
+        2040,
+        1354
+      ],
+      "lat_range": [
+        -89.67524719238281,
+        -63.61759567260742
+      ],
+      "lon_range": [
+        -179.84739685058594,
+        179.4111785888672
+      ],
+      "covers_roi": false
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0405.061.2021350104734.hdf",
+      "hhmm": "0405",
+      "minute_of_day": 245,
+      "target_offset_minutes": 5,
+      "downloaded_bytes": 1436848,
+      "swath_shape": [
+        2030,
+        1354
+      ],
+      "lat_range": [
+        -72.46935272216797,
+        -49.72319030761719
+      ],
+      "lon_range": [
+        -93.68944549560547,
+        -36.90436553955078
+      ],
+      "covers_roi": false
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0350.061.2021350104722.hdf",
+      "hhmm": "0350",
+      "minute_of_day": 230,
+      "target_offset_minutes": 10,
+      "downloaded_bytes": 1481645,
+      "swath_shape": [
+        2030,
+        1354
+      ],
+      "lat_range": [
+        -71.74515533447266,
+        -49.01938247680664
+      ],
+      "lon_range": [
+        53.347957611083984,
+        108.39043426513672
+      ],
+      "covers_roi": false
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0410.061.2021350104753.hdf",
+      "hhmm": "0410",
+      "minute_of_day": 250,
+      "target_offset_minutes": 10,
+      "downloaded_bytes": 2593541,
+      "swath_shape": [
+        2030,
+        1354
+      ],
+      "lat_range": [
+        -54.625274658203125,
+        -33.14677810668945
+      ],
+      "lon_range": [
+        -93.3179931640625,
+        -57.636322021484375
+      ],
+      "covers_roi": false
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0415.061.2021350111322.hdf",
+      "hhmm": "0415",
+      "minute_of_day": 255,
+      "target_offset_minutes": 15,
+      "downloaded_bytes": 1272764,
+      "swath_shape": [
+        2030,
+        1354
+      ],
+      "lat_range": [
+        -36.7751579284668,
+        -15.782727241516113
+      ],
+      "lon_range": [
+        -95.74887084960938,
+        -67.85067749023438
+      ],
+      "covers_roi": false
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0420.061.2021350111330.hdf",
+      "hhmm": "0420",
+      "minute_of_day": 260,
+      "target_offset_minutes": 20,
+      "downloaded_bytes": 1267917,
+      "swath_shape": [
+        2030,
+        1354
+      ],
+      "lat_range": [
+        -18.868053436279297,
+        1.954161286354065
+      ],
+      "lon_range": [
+        -99.01630401611328,
+        -74.09290313720703
+      ],
+      "covers_roi": false
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0335.061.2021350111312.hdf",
+      "hhmm": "0335",
+      "minute_of_day": 215,
+      "target_offset_minutes": 25,
+      "downloaded_bytes": 1423233,
+      "swath_shape": [
+        2030,
+        1354
+      ],
+      "lat_range": [
+        -18.144010543823242,
+        2.7419214248657227
+      ],
+      "lon_range": [
+        89.40233612060547,
+        114.269775390625
+      ],
+      "covers_roi": false
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0425.061.2021350103456.hdf",
+      "hhmm": "0425",
+      "minute_of_day": 265,
+      "target_offset_minutes": 25,
+      "downloaded_bytes": 1995272,
+      "swath_shape": [
+        2030,
+        1354
+      ],
+      "lat_range": [
+        -0.9768441319465637,
+        19.854595184326172
+      ],
+      "lon_range": [
+        -103.3852310180664,
+        -78.4579849243164
+      ],
+      "covers_roi": false
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0330.061.2021350103446.hdf",
+      "hhmm": "0330",
+      "minute_of_day": 210,
+      "target_offset_minutes": 30,
+      "downloaded_bytes": 2294463,
+      "swath_shape": [
+        2030,
+        1354
+      ],
+      "lat_range": [
+        -0.2550795376300812,
+        20.643362045288086
+      ],
+      "lon_range": [
+        93.73009490966797,
+        118.70237731933594
+      ],
+      "covers_roi": false
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0430.061.2021350103507.hdf",
+      "hhmm": "0430",
+      "minute_of_day": 270,
+      "target_offset_minutes": 30,
+      "downloaded_bytes": 1908471,
+      "swath_shape": [
+        2030,
+        1354
+      ],
+      "lat_range": [
+        16.775371551513672,
+        37.79988098144531
+      ],
+      "lon_range": [
+        -109.6162109375,
+        -81.77332305908203
+      ],
+      "covers_roi": false
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0325.061.2021350103427.hdf",
+      "hhmm": "0325",
+      "minute_of_day": 205,
+      "target_offset_minutes": 35,
+      "downloaded_bytes": 3387859,
+      "swath_shape": [
+        2030,
+        1354
+      ],
+      "lat_range": [
+        17.486663818359375,
+        38.58807373046875
+      ],
+      "lon_range": [
+        97.0389175415039,
+        125.0965576171875
+      ],
+      "covers_roi": false
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0435.061.2021350112723.hdf",
+      "hhmm": "0435",
+      "minute_of_day": 275,
+      "target_offset_minutes": 35,
+      "downloaded_bytes": 6140291,
+      "swath_shape": [
+        2030,
+        1354
+      ],
+      "lat_range": [
+        34.19783401489258,
+        55.71598815917969
+      ],
+      "lon_range": [
+        -120.0947036743164,
+        -84.28898620605469
+      ],
+      "covers_roi": false
+    },
+    {
+      "filename": "MOD11_L2.A2018296.0320.061.2021350112641.hdf",
+      "hhmm": "0320",
+      "minute_of_day": 200,
+      "target_offset_minutes": 40,
+      "downloaded_bytes": 5265940,
+      "swath_shape": [
+        2030,
+        1354
+      ],
+      "lat_range": [
+        34.87421417236328,
+        56.50458908081055
+      ],
+      "lon_range": [
+        99.57205200195312,
+        135.81813049316406
+      ],
+      "covers_roi": true
+    }
+  ]
+}

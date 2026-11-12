@@ -1,0 +1,38 @@
+{
+  "MOD11_L2 swath (1 km)": {
+    "status": "ok",
+    "file": "output/modis_l2_swath/gtnnwar-zhangye-20181023-a5d90c376e/MOD11_L2_20181023_0320_UTC_C.tif",
+    "pixels": 2373,
+    "total_pixels": 2668,
+    "valid_fraction": 0.8894302848575713,
+    "min_c": 13.010009765625,
+    "max_c": 25.6099853515625,
+    "mean_c": 19.148759841918945,
+    "source_granule": "MOD11_L2.A2018296.0320.061.2021350112641.hdf",
+    "acquired_utc": null
+  },
+  "MOD11A1 Terra daily (1 km)": {
+    "status": "ok",
+    "file": "output/modis_lst/gtnnwar-zhangye-20181023-a5d90c376e/MOD11A1_20181023_LST_QA.tif",
+    "pixels": 3432,
+    "total_pixels": 3432,
+    "valid_fraction": 1.0,
+    "min_c": 9.789999961853027,
+    "max_c": 29.489999771118164,
+    "mean_c": 22.260990142822266,
+    "source_granule": null,
+    "acquired_utc": null
+  },
+  "Landsat 8 C2 L2 LST (30m grid)": {
+    "status": "ok",
+    "file": "output/landsat/gtnnwar-zhangye-20181023-a5d90c376e/LC08_L2SP_133033_20181023_20200830_02_T1_L2_LST_QA.tif",
+    "pixels": 3615181,
+    "total_pixels": 3615831,
+    "valid_fraction": 0.9998202349612025,
+    "min_c": 1.12043297290802,
+    "max_c": 35.457862854003906,
+    "mean_c": 22.787778854370117,
+    "source_granule": null,
+    "acquired_utc": "2018-10-23T03:55:36.065000Z"
+  }
+}

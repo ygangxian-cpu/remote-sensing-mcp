@@ -1,0 +1,143 @@
+{
+  "product": "MODIS Terra/Aqua Daily LST V6.1",
+  "project": "ee-ygangxian",
+  "start_date": "2018-10-23",
+  "end_date": "2018-10-24",
+  "bbox": [
+    100.188333,
+    38.6975,
+    100.767778,
+    39.150278
+  ],
+  "region_name": "gtnnwar-zhangye-20181023",
+  "region_id": "gtnnwar-zhangye-20181023-a5d90c376e",
+  "platforms": [
+    "terra"
+  ],
+  "download_mask": "native product availability only; no additional research QA mask",
+  "recommended_strict_qc": "bits0-1<=1; bits2-3==0; bits6-7<=2",
+  "qa_preserved": true,
+  "cache_version": "v2",
+  "cache_hits": 0,
+  "cache_created": 1,
+  "missing": [],
+  "files": [
+    {
+      "date": "2018-10-23",
+      "platform": "terra",
+      "cache_path": "data/modis_lst/v2/gtnnwar-zhangye-20181023-a5d90c376e/2018/10/23/MOD11A1_20181023_LST_QA.tif",
+      "artifact_path": "output/modis_lst/gtnnwar-zhangye-20181023-a5d90c376e/MOD11A1_20181023_LST_QA.tif",
+      "created": true,
+      "details": {
+        "path": "data/modis_lst/v2/gtnnwar-zhangye-20181023-a5d90c376e/2018/10/23/MOD11A1_20181023_LST_QA.tif",
+        "size_bytes": 29390,
+        "width": 66,
+        "height": 52,
+        "crs": "EPSG:4326",
+        "stats": {
+          "LST_DAY_C": {
+            "unit": "degC",
+            "valid_pixels": 3432,
+            "min": 9.789999961853027,
+            "max": 29.489999771118164,
+            "mean": 22.260990142822266
+          },
+          "LST_NIGHT_C": {
+            "unit": "degC",
+            "valid_pixels": 3432,
+            "min": -3.75,
+            "max": 4.96999979019165,
+            "mean": -0.7616958022117615
+          },
+          "DAY_VIEW_TIME_LOCAL_H": {
+            "unit": "hour_local_solar_time",
+            "valid_pixels": 3432,
+            "min": 11.699999809265137,
+            "max": 11.800000190734863,
+            "mean": 11.758304595947266
+          },
+          "NIGHT_VIEW_TIME_LOCAL_H": {
+            "unit": "hour_local_solar_time",
+            "valid_pixels": 3432,
+            "min": 22.799999237060547,
+            "max": 22.799999237060547,
+            "mean": 22.799997329711914
+          },
+          "QC_DAY": {
+            "unit": "raw_qc_bitfield",
+            "valid_pixels": 3432,
+            "min": 0.0,
+            "max": 17.0,
+            "mean": 0.04953379929065704
+          },
+          "QC_NIGHT": {
+            "unit": "raw_qc_bitfield",
+            "valid_pixels": 10,
+            "min": 17.0,
+            "max": 17.0,
+            "mean": 17.0
+          }
+        },
+        "quality_summary": {
+          "total_pixels": 3432,
+          "day": {
+            "native_lst_valid_pixels": 3432,
+            "native_lst_valid_ratio": 1.0,
+            "qc_available_pixels": 3432,
+            "product_generated_pixels": 3432,
+            "product_generated_ratio": 1.0,
+            "strict_research_qc_pixels": 3432,
+            "strict_research_qc_ratio": 1.0,
+            "strict_retention_of_native": 1.0,
+            "mandatory_qa_counts": {
+              "0": 3422,
+              "1": 10,
+              "2": 0,
+              "3": 0
+            },
+            "data_quality_counts": {
+              "0": 3432,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "lst_error_class_counts": {
+              "0": 3432,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            }
+          },
+          "night": {
+            "native_lst_valid_pixels": 3432,
+            "native_lst_valid_ratio": 1.0,
+            "qc_available_pixels": 10,
+            "product_generated_pixels": 10,
+            "product_generated_ratio": 0.002914,
+            "strict_research_qc_pixels": 10,
+            "strict_research_qc_ratio": 0.002914,
+            "strict_retention_of_native": 0.002914,
+            "mandatory_qa_counts": {
+              "0": 0,
+              "1": 10,
+              "2": 0,
+              "3": 0
+            },
+            "data_quality_counts": {
+              "0": 10,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "lst_error_class_counts": {
+              "0": 10,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            }
+          }
+        }
+      }
+    }
+  ]
+}

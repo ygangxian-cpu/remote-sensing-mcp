@@ -14,6 +14,18 @@
       },
       "region_name": "beijing"
     },
+    "gtnnwar-zhangye-20181023-a5d90c376e": {
+      "bbox": [
+        100.188333,
+        38.6975,
+        100.767778,
+        39.150278
+      ],
+      "files": {
+        "2018-10-23:terra": "data/modis_lst/v2/gtnnwar-zhangye-20181023-a5d90c376e/2018/10/23/MOD11A1_20181023_LST_QA.tif"
+      },
+      "region_name": "gtnnwar-zhangye-20181023"
+    },
     "zhangye-2e599e4070": {
       "bbox": [
         99.86,
@@ -84,5 +96,5 @@
       "region_name": "zhangye-experiment"
     }
   },
-  "updated_at": "2026-10-01T02:44:34.898293Z"
+  "updated_at": "2026-11-12T09:14:06.837431Z"
 }
