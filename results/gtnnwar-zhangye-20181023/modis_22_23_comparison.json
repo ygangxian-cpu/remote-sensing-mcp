@@ -1,0 +1,116 @@
+{
+  "Landsat_20181023": {
+    "time": "03:55 UTC",
+    "path": "data/landsat_c2_l2/v3/gtnnwar-zhangye-20181023-a5d90c376e/2018/10/23/LC08_L2SP_133033_20181023_20200830_02_T1_L2_LST_QA.tif",
+    "valid_pixels": 3615181,
+    "total_pixels": 3615831,
+    "valid_fraction": 0.9998202349612025,
+    "mean_c": 22.787778854370117,
+    "min_c": 1.12043297290802,
+    "max_c": 35.457862854003906,
+    "status": "ok"
+  },
+  "L2_20181023": {
+    "time": "03:24 UTC (ROI mean)",
+    "path": "data/modis_l2_swath/v1/gtnnwar-zhangye-20181023-a5d90c376e/2018/10/23/MOD11_L2_20181023_0320_UTC_C.tif",
+    "valid_pixels": 2373,
+    "total_pixels": 2668,
+    "valid_fraction": 0.8894302848575713,
+    "mean_c": 19.148761749267578,
+    "min_c": 13.010009765625,
+    "max_c": 25.6099853515625,
+    "status": "ok",
+    "vs_landsat_23": {
+      "match_pixels": 2373,
+      "pearson_r": 0.5838087735485977,
+      "rmse_c": 4.410339068613762,
+      "mae_c": 4.00544784624668,
+      "bias_c": -3.8638575887860904,
+      "reference_agg_mean_c": 23.012619310725455,
+      "coarse_overlap_mean_c": 19.148761721939362,
+      "reference_agg_std_c": 2.56041938652287,
+      "coarse_overlap_std_c": 1.9424120945862873
+    }
+  },
+  "L2_20181022": {
+    "time": "04:18 UTC (ROI mean)",
+    "path": "output/modis_l2_swath/gtnnwar-zhangye-20181022-a5d90c376e/MOD11_L2_20181022_0420_UTC_C.tif",
+    "valid_pixels": 2668,
+    "total_pixels": 2668,
+    "valid_fraction": 1.0,
+    "mean_c": 20.000368118286133,
+    "min_c": 5.829986572265625,
+    "max_c": 28.75,
+    "status": "ok",
+    "vs_landsat_23": {
+      "match_pixels": 2668,
+      "pearson_r": 0.8703650982332387,
+      "rmse_c": 3.093443336520857,
+      "mae_c": 2.8236255928136775,
+      "bias_c": -2.7893575817748704,
+      "reference_agg_mean_c": 22.78972497086475,
+      "coarse_overlap_mean_c": 20.000367389089877,
+      "reference_agg_std_c": 2.5728801826823675,
+      "coarse_overlap_std_c": 2.6680991889361563
+    }
+  },
+  "A1_20181023": {
+    "time": "05:04 UTC (ROI mean)",
+    "path": "data/modis_lst/v2/gtnnwar-zhangye-20181023-a5d90c376e/2018/10/23/MOD11A1_20181023_LST_QA.tif",
+    "valid_pixels": 3432,
+    "total_pixels": 3432,
+    "valid_fraction": 1.0,
+    "mean_c": 22.260990142822266,
+    "min_c": 9.789999961853027,
+    "max_c": 29.489999771118164,
+    "status": "ok",
+    "vs_landsat_23": {
+      "match_pixels": 3432,
+      "pearson_r": 0.7254405807788152,
+      "rmse_c": 2.02703420473318,
+      "mae_c": 1.4653007953594892,
+      "bias_c": -0.5443913561480862,
+      "reference_agg_mean_c": 22.805382026936904,
+      "coarse_overlap_mean_c": 22.260990670788814,
+      "reference_agg_std_c": 2.6380677166818454,
+      "coarse_overlap_std_c": 2.6318052797660436
+    }
+  },
+  "A1_20181022": {
+    "time": "04:19 UTC (ROI mean)",
+    "path": "output/modis_lst/gtnnwar-zhangye-20181022-a5d90c376e/MOD11A1_20181022_LST_QA.tif",
+    "valid_pixels": 3429,
+    "total_pixels": 3432,
+    "valid_fraction": 0.9991258741258742,
+    "mean_c": 19.998584747314453,
+    "min_c": 4.630000114440918,
+    "max_c": 27.90999984741211,
+    "status": "ok",
+    "vs_landsat_23": {
+      "match_pixels": 3429,
+      "pearson_r": 0.8539431321617776,
+      "rmse_c": 3.1531228692889313,
+      "mae_c": 2.8522492107270097,
+      "bias_c": -2.8087219073912184,
+      "reference_agg_mean_c": 22.807307504780198,
+      "coarse_overlap_mean_c": 19.998585597388978,
+      "reference_agg_std_c": 2.638404307939265,
+      "coarse_overlap_std_c": 2.6633028213140917
+    }
+  },
+  "_metadata": {
+    "ROI_WGS84": [
+      100.188333,
+      38.6975,
+      100.767778,
+      39.150278
+    ],
+    "reference": "Landsat 8 C2 L2 ST_B10; cloud/cirrus/shadow/snow/fill QA excluded",
+    "daily_product": "MOD11A1 is an additional comparison, not the paper's stated MOD11_L2",
+    "method": "Landsat QA-valid temperature area-averaged to each MODIS source grid",
+    "temperature_units": "degrees Celsius",
+    "shared_display_vmin_c": 13.814959526062012,
+    "shared_display_vmax_c": 28.314199447631836,
+    "caution": "Different dates and/or overpass times; metrics are descriptive only, not downscaling validation scores."
+  }
+}

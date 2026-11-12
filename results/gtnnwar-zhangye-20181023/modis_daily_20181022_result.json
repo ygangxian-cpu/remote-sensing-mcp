@@ -1,0 +1,143 @@
+{
+  "product": "MODIS Terra/Aqua Daily LST V6.1",
+  "project": "ee-ygangxian",
+  "start_date": "2018-10-22",
+  "end_date": "2018-10-23",
+  "bbox": [
+    100.188333,
+    38.6975,
+    100.767778,
+    39.150278
+  ],
+  "region_name": "gtnnwar-zhangye-20181022",
+  "region_id": "gtnnwar-zhangye-20181022-a5d90c376e",
+  "platforms": [
+    "terra"
+  ],
+  "download_mask": "native product availability only; no additional research QA mask",
+  "recommended_strict_qc": "bits0-1<=1; bits2-3==0; bits6-7<=2",
+  "qa_preserved": true,
+  "cache_version": "v2",
+  "cache_hits": 0,
+  "cache_created": 1,
+  "missing": [],
+  "files": [
+    {
+      "date": "2018-10-22",
+      "platform": "terra",
+      "cache_path": "data/modis_lst/v2/gtnnwar-zhangye-20181022-a5d90c376e/2018/10/22/MOD11A1_20181022_LST_QA.tif",
+      "artifact_path": "output/modis_lst/gtnnwar-zhangye-20181022-a5d90c376e/MOD11A1_20181022_LST_QA.tif",
+      "created": true,
+      "details": {
+        "path": "data/modis_lst/v2/gtnnwar-zhangye-20181022-a5d90c376e/2018/10/22/MOD11A1_20181022_LST_QA.tif",
+        "size_bytes": 32828,
+        "width": 66,
+        "height": 52,
+        "crs": "EPSG:4326",
+        "stats": {
+          "LST_DAY_C": {
+            "unit": "degC",
+            "valid_pixels": 3429,
+            "min": 4.630000114440918,
+            "max": 27.90999984741211,
+            "mean": 19.998584747314453
+          },
+          "LST_NIGHT_C": {
+            "unit": "degC",
+            "valid_pixels": 3424,
+            "min": -5.510000228881836,
+            "max": 5.650000095367432,
+            "mean": -1.207832932472229
+          },
+          "DAY_VIEW_TIME_LOCAL_H": {
+            "unit": "hour_local_solar_time",
+            "valid_pixels": 3429,
+            "min": 11.0,
+            "max": 11.100000381469727,
+            "mean": 11.007231712341309
+          },
+          "NIGHT_VIEW_TIME_LOCAL_H": {
+            "unit": "hour_local_solar_time",
+            "valid_pixels": 3424,
+            "min": 22.100000381469727,
+            "max": 22.100000381469727,
+            "mean": 22.10000228881836
+          },
+          "QC_DAY": {
+            "unit": "raw_qc_bitfield",
+            "valid_pixels": 3432,
+            "min": 0.0,
+            "max": 81.0,
+            "mean": 2.1858973503112793
+          },
+          "QC_NIGHT": {
+            "unit": "raw_qc_bitfield",
+            "valid_pixels": 564,
+            "min": 2.0,
+            "max": 81.0,
+            "mean": 60.13475036621094
+          }
+        },
+        "quality_summary": {
+          "total_pixels": 3432,
+          "day": {
+            "native_lst_valid_pixels": 3429,
+            "native_lst_valid_ratio": 0.999126,
+            "qc_available_pixels": 3432,
+            "product_generated_pixels": 3429,
+            "product_generated_ratio": 0.999126,
+            "strict_research_qc_pixels": 3429,
+            "strict_research_qc_ratio": 0.999126,
+            "strict_retention_of_native": 1.0,
+            "mandatory_qa_counts": {
+              "0": 3293,
+              "1": 136,
+              "2": 3,
+              "3": 0
+            },
+            "data_quality_counts": {
+              "0": 3432,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "lst_error_class_counts": {
+              "0": 3327,
+              "1": 105,
+              "2": 0,
+              "3": 0
+            }
+          },
+          "night": {
+            "native_lst_valid_pixels": 3424,
+            "native_lst_valid_ratio": 0.997669,
+            "qc_available_pixels": 564,
+            "product_generated_pixels": 556,
+            "product_generated_ratio": 0.162005,
+            "strict_research_qc_pixels": 556,
+            "strict_research_qc_ratio": 0.162005,
+            "strict_retention_of_native": 0.162383,
+            "mandatory_qa_counts": {
+              "0": 0,
+              "1": 556,
+              "2": 8,
+              "3": 0
+            },
+            "data_quality_counts": {
+              "0": 564,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "lst_error_class_counts": {
+              "0": 57,
+              "1": 507,
+              "2": 0,
+              "3": 0
+            }
+          }
+        }
+      }
+    }
+  ]
+}
