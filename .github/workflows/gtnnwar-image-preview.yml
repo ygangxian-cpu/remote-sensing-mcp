@@ -1,0 +1,44 @@
+name: GTNNWAR Comparison Small PNG Preview
+on:
+  push:
+    branches: [repro/gtnnwar]
+    paths: ['.github/workflows/gtnnwar-image-preview.yml']
+permissions:
+  contents: write
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Create small embedded PNG preserving full-size original
+        run: |
+          python -m pip install pillow
+          python - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          import json
+          root=Path('results/gtnnwar-zhangye-20181023')
+          src=root/'modis_22_23_vs_landsat_23.png'
+          assert src.exists(), src
+          im=Image.open(src).convert('RGB')
+          orig=im.size
+          im.thumbnail((1900,1150), Image.Resampling.LANCZOS)
+          out=root/'modis_22_23_preview.png'
+          im.quantize(colors=192, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE).save(out,'PNG',optimize=True)
+          print(json.dumps({'source':str(src),'original_dimensions':orig,'preview_dimensions':im.size,'preview_bytes':out.stat().st_size},indent=2))
+          PY
+      - name: Store PNG preview on experiment branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add results/gtnnwar-zhangye-20181023/modis_22_23_preview.png
+          if ! git diff --cached --quiet; then
+            git commit -m 'plot: add lightweight GTNNWAR 22 vs 23 comparison preview [skip ci]'
+            git pull --rebase origin repro/gtnnwar
+            git push origin HEAD:repro/gtnnwar
+          fi
