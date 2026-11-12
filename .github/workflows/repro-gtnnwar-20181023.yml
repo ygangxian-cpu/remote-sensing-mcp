@@ -27,7 +27,7 @@ jobs:
       - name: Install retrieval dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y libhdf4-alt-dev
+          sudo apt-get install -y libhdf4-dev || true
           pip install earthengine-api google-auth requests numpy scipy rasterio matplotlib pyhdf
       - name: Restore Earth Engine login
         shell: bash
@@ -74,7 +74,7 @@ jobs:
           specs=[
             ('MOD11_L2 swath (1 km)','output/modis_l2_swath/**/*.tif',1,None),
             ('MOD11A1 Terra daily (1 km)','output/modis_lst/**/*.tif',1,None),
-            ('Landsat 8 C2 L2 (100 m TIRS native)','output/landsat/**/*.tif',1,'landsat'),
+            ('Landsat 8 C2 L2 LST (30m grid)','output/landsat/**/*.tif',1,'landsat'),
           ]
           imgs=[];report={}
           for title,pattern,band,kind in specs:
