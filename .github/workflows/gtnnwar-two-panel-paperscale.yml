@@ -1,0 +1,31 @@
+name: GTNNWAR Figure 9 Two-Panel Paper Kelvin Scale
+on:
+  push:
+    branches: [repro/gtnnwar]
+    paths: ['.github/workflows/gtnnwar-two-panel-paperscale.yml']
+permissions:
+  contents: write
+jobs:
+  two-panel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install visualization dependencies
+        run: python -m pip install numpy matplotlib rasterio pillow
+      - name: Plot only Landsat 23 and MOD11_L2 22 with paper color scale
+        run: python scripts/plot_gtnnwar_two_panel_paperscale.py
+      - name: Save raster comparison plots
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add results/gtnnwar-zhangye-20181023/landsat23_vs_modis_l2_22_paper_scale*
+          if ! git diff --cached --quiet; then
+            git commit -m 'plot: Landsat and MOD11_L2 original temperatures at paper Fig 9 scale [skip ci]'
+            git pull --rebase origin repro/gtnnwar
+            git push origin HEAD:repro/gtnnwar
+          fi
