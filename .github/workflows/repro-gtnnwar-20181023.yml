@@ -1,0 +1,157 @@
+name: GTNNWAR Zhangye 2018-10-23 Data Acquisition and Preview
+on:
+  push:
+    branches: [repro/gtnnwar]
+    paths: ['.github/workflows/repro-gtnnwar-20181023.yml']
+permissions:
+  contents: write
+jobs:
+  acquire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      EE_PROJECT: ${{ vars.EE_PROJECT || 'ee-ygangxian' }}
+      EE_USER_CREDENTIALS_JSON_BASE64: ${{ secrets.EE_USER_CREDENTIALS_JSON_BASE64 }}
+      EE_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.EE_SERVICE_ACCOUNT_JSON_BASE64 }}
+      LAADS_TOKEN: ${{ secrets.LAADS_TOKEN }}
+      EARTHDATA_TOKEN: ${{ secrets.EARTHDATA_TOKEN }}
+      NASA_EARTHDATA_TOKEN: ${{ secrets.NASA_EARTHDATA_TOKEN }}
+      EDL_TOKEN: ${{ secrets.EDL_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install retrieval dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libhdf4-alt-dev
+          pip install earthengine-api google-auth requests numpy scipy rasterio matplotlib pyhdf
+      - name: Restore Earth Engine login
+        shell: bash
+        run: |
+          if [ -n "$EE_USER_CREDENTIALS_JSON_BASE64" ]; then
+            mkdir -p "$HOME/.config/earthengine"
+            printf '%s' "$EE_USER_CREDENTIALS_JSON_BASE64" | base64 --decode > "$HOME/.config/earthengine/credentials"
+            chmod 600 "$HOME/.config/earthengine/credentials"
+          elif [ -z "$EE_SERVICE_ACCOUNT_JSON_BASE64" ]; then
+            echo 'Earth Engine credentials unavailable (Landsat & daily MODIS may fail)'
+          fi
+      - name: Download Landsat 8
+        shell: bash
+        run: |
+          mkdir -p results/gtnnwar-zhangye-20181023
+          R=results/gtnnwar-zhangye-20181023
+          python landsat_worker.py --start-date 2018-10-23 --end-date 2018-10-24 --bbox '100.188333,38.6975,100.767778,39.150278' --region-name gtnnwar-zhangye-20181023 --satellites L8 --cloud-cover-max 100 > "$R/landsat.log" 2>&1 || echo "landsat_failed" > "$R/landsat_error.flag"
+          if [ -f output/result.json ]; then cp output/result.json "$R/landsat_result.json"; rm output/result.json; fi
+      - name: Download MODIS daily Terra
+        shell: bash
+        run: |
+          R=results/gtnnwar-zhangye-20181023
+          python modis_worker.py --start-date 2018-10-23 --end-date 2018-10-24 --bbox '100.188333,38.6975,100.767778,39.150278' --region-name gtnnwar-zhangye-20181023 --platforms terra > "$R/modis_daily.log" 2>&1 || echo "modis_daily_failed" > "$R/modis_daily_error.flag"
+          if [ -f output/result.json ]; then cp output/result.json "$R/modis_daily_result.json"; rm output/result.json; fi
+      - name: Download original Terra MOD11_L2 swath
+        shell: bash
+        run: |
+          R=results/gtnnwar-zhangye-20181023
+          python modis_l2_swath_worker.py --date 2018-10-23 --bbox '100.188333,38.6975,100.767778,39.150278' --region-name gtnnwar-zhangye-20181023 --platform terra --target-time-utc 04:00 --time-window-minutes 100 --output-unit celsius > "$R/modis_l2.log" 2>&1 || echo "modis_l2_failed" > "$R/modis_l2_error.flag"
+          if [ -f output/result.json ]; then cp output/result.json "$R/modis_l2_result.json"; rm output/result.json; fi
+      - name: Draw actual satellite observations
+        shell: bash
+        run: |
+          python - <<'PY'
+          import glob,json
+          from pathlib import Path
+          import numpy as np
+          import matplotlib
+          matplotlib.use('Agg')
+          import matplotlib.pyplot as plt
+          import rasterio
+          R=Path('results/gtnnwar-zhangye-20181023')
+          R.mkdir(parents=True,exist_ok=True)
+          specs=[
+            ('MOD11_L2 swath (1 km)','output/modis_l2_swath/**/*.tif',1,None),
+            ('MOD11A1 Terra daily (1 km)','output/modis_lst/**/*.tif',1,None),
+            ('Landsat 8 C2 L2 (100 m TIRS native)','output/landsat/**/*.tif',1,'landsat'),
+          ]
+          imgs=[];report={}
+          for title,pattern,band,kind in specs:
+            paths=glob.glob(pattern,recursive=True)
+            if not paths:
+              imgs.append(None);report[title]={'status':'not_available'};continue
+            best=None
+            for path in paths:
+              try:
+                with rasterio.open(path) as src:
+                  a=src.read(1,masked=True).filled(np.nan).astype('float32')
+                  valid=np.isfinite(a)&(a>-80)&(a<90)
+                  if kind=='landsat' and src.count>=3:
+                    qa=src.read(3,masked=True).filled(-999)
+                    valid&=(qa>=0)&((qa.astype('int64')&63)==0)
+                  n=int(valid.sum())
+                  if best is None or n>best[0]:
+                    best=(n,a,valid,(src.bounds.left,src.bounds.right,src.bounds.bottom,src.bounds.top),str(path),src.tags())
+              except Exception as e:
+                report[str(path)]={'read_error':str(e)}
+            if best is None:
+              imgs.append(None);report[title]={'status':'unreadable'};continue
+            n,a,valid,extent,path,tags=best
+            imgs.append((np.where(valid,a,np.nan),extent,title))
+            v=a[valid]
+            report[title]=dict(status='ok' if n>0 else 'no_valid_pixels',file=path,
+              pixels=n,total_pixels=int(a.size),valid_fraction=n/a.size,
+              min_c=float(v.min()) if n else None,max_c=float(v.max()) if n else None,
+              mean_c=float(v.mean()) if n else None,
+              source_granule=tags.get('source_granule'),acquired_utc=tags.get('acquired_utc'))
+          with (R/'data_report.json').open('w') as f:json.dump(report,f,ensure_ascii=False,indent=2)
+          valid_sets=[v[0][np.isfinite(v[0])] for v in imgs if v is not None and np.any(np.isfinite(v[0]))]
+          if valid_sets:
+            lo=float(np.percentile(np.concatenate(valid_sets),2))
+            hi=float(np.percentile(np.concatenate(valid_sets),98))
+            if hi<=lo:hi=lo+1
+          else:lo,hi=0,45
+          fig,ax=plt.subplots(1,3,figsize=(15,5),constrained_layout=True)
+          for i,(axis,it) in enumerate(zip(ax,imgs)):
+            axis.set_facecolor('#f1f1f1')
+            axis.set_title(specs[i][0],fontsize=11)
+            if it is None or not np.isfinite(it[0]).any():
+              axis.text(0.5,0.5,'Not retrieved / no QA-valid pixels',ha='center',va='center',wrap=True,transform=axis.transAxes,fontsize=10)
+            else:
+              im=axis.imshow(it[0],extent=it[1],origin='upper',cmap='RdYlGn_r',vmin=lo,vmax=hi,interpolation='nearest')
+            axis.set_xlabel('Longitude (°E)')
+            axis.set_ylabel('Latitude (°N)')
+            axis.set_xlim(100.188333,100.767778)
+            axis.set_ylim(38.6975,39.150278)
+          if valid_sets:
+            sm=plt.cm.ScalarMappable(cmap='RdYlGn_r',norm=plt.Normalize(vmin=lo,vmax=hi))
+            fig.colorbar(sm,ax=ax,location='bottom',shrink=0.68,aspect=45,pad=0.10,label='Land surface temperature (°C), common color scale')
+          fig.suptitle('GTNNWAR paper Zhangye ROI | 23 October 2018 | actual satellite rasters',fontsize=14)
+          fig.savefig(R/'observations_20181023.png',dpi=160,bbox_inches='tight')
+          fig.savefig(R/'observations_20181023.jpg',dpi=135,bbox_inches='tight',quality=85) if False else None
+          plt.close(fig)
+          print(json.dumps(report,ensure_ascii=False,indent=2))
+          PY
+      - name: Persist independently reproducible results on experiment branch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results/gtnnwar-zhangye-20181023 data/landsat_c2_l2 data/modis_lst data/modis_l2_swath data/metadata || true
+          if ! git diff --cached --quiet; then
+            git commit -m 'data: Zhangye GTNNWAR paper date 2018-10-23 satellite preview [skip ci]'
+            git push origin HEAD:repro/gtnnwar
+          fi
+      - name: Upload research preview artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gtnnwar-zhangye-20181023
+          path: |
+            results/gtnnwar-zhangye-20181023/**
+            output/landsat/**/*.tif
+            output/modis_lst/**/*.tif
+            output/modis_l2_swath/**/*.tif
+          retention-days: 30
+          if-no-files-found: warn
