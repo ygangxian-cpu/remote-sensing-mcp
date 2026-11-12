@@ -1,0 +1,32 @@
+{
+  "source": "real satellite retrievals from MCP repo",
+  "reference": "data/landsat_c2_l2/v3/gtnnwar-zhangye-20181023-a5d90c376e/2018/10/23/LC08_L2SP_133033_20181023_20200830_02_T1_L2_LST_QA.tif",
+  "modis": {
+    "n": 2668,
+    "valid_pct": 100.0,
+    "mean_K": 293.15,
+    "max_K": 301.9,
+    "min_K": 278.98,
+    "pixels_above_304K": 0,
+    "pixels_above_312K": 0
+  },
+  "date_note": "Landsat 2018-10-23 vs MODIS 2018-10-22 are on different dates",
+  "paper_fig9_legend_K": [
+    280,
+    288,
+    296,
+    304,
+    312
+  ],
+  "plot_colormap": "approximation to paper green-yellow-orange-red legend",
+  "landsat": {
+    "n": 3615181,
+    "valid_pct": 99.982,
+    "mean_K": 295.94,
+    "max_K": 308.61,
+    "min_K": 274.27,
+    "pixels_above_304K": 2970,
+    "pixels_above_312K": 0
+  },
+  "note": "Raw products are not identical to paper processing (Landsat paper uses MW retrieval; MODIS paper may gap-fill)."
+}
