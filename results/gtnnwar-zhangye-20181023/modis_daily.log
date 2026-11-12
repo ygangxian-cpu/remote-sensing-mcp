@@ -1,2 +1,0 @@
-/home/runner/work/remote-sensing-mcp/remote-sensing-mcp/modis_worker.py:371: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
-  index["updated_at"] = datetime.utcnow().isoformat() + "Z"

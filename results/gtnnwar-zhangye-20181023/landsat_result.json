@@ -22,8 +22,8 @@
   "cache_scope": "validation_lst_qa",
   "spectral_factors_note": "Persistent Landsat cache contains LST/QA only. Use the scaling-factors workflow for SR-derived downscaling predictors.",
   "scene_count": 1,
-  "cache_hits": 0,
-  "cache_created": 1,
+  "cache_hits": 1,
+  "cache_created": 0,
   "bands": [
     {
       "name": "LST_C",
@@ -55,7 +55,7 @@
       "acquired_utc": "2018-10-23T03:55:36.065000Z",
       "cache_path": "data/landsat_c2_l2/v3/gtnnwar-zhangye-20181023-a5d90c376e/2018/10/23/LC08_L2SP_133033_20181023_20200830_02_T1_L2_LST_QA.tif",
       "artifact_path": "output/landsat/gtnnwar-zhangye-20181023-a5d90c376e/LC08_L2SP_133033_20181023_20200830_02_T1_L2_LST_QA.tif",
-      "created": true,
+      "created": false,
       "details": {
         "path": "data/landsat_c2_l2/v3/gtnnwar-zhangye-20181023-a5d90c376e/2018/10/23/LC08_L2SP_133033_20181023_20200830_02_T1_L2_LST_QA.tif",
         "size_bytes": 8647114,

@@ -1,5 +1,5 @@
 {
-  "MOD11_L2 swath (1 km)": {
+  "MOD11_L2 (03:24 UTC)": {
     "status": "ok",
     "file": "output/modis_l2_swath/gtnnwar-zhangye-20181023-a5d90c376e/MOD11_L2_20181023_0320_UTC_C.tif",
     "pixels": 2373,
@@ -11,7 +11,7 @@
     "source_granule": "MOD11_L2.A2018296.0320.061.2021350112641.hdf",
     "acquired_utc": null
   },
-  "MOD11A1 Terra daily (1 km)": {
+  "MOD11A1 (approx 05:03 UTC)": {
     "status": "ok",
     "file": "output/modis_lst/gtnnwar-zhangye-20181023-a5d90c376e/MOD11A1_20181023_LST_QA.tif",
     "pixels": 3432,
@@ -23,7 +23,7 @@
     "source_granule": null,
     "acquired_utc": null
   },
-  "Landsat 8 C2 L2 LST (30m grid)": {
+  "Landsat 8 C2 L2 (03:55 UTC)": {
     "status": "ok",
     "file": "output/landsat/gtnnwar-zhangye-20181023-a5d90c376e/LC08_L2SP_133033_20181023_20200830_02_T1_L2_LST_QA.tif",
     "pixels": 3615181,

@@ -18,8 +18,8 @@
   "recommended_strict_qc": "bits0-1<=1; bits2-3==0; bits6-7<=2",
   "qa_preserved": true,
   "cache_version": "v2",
-  "cache_hits": 0,
-  "cache_created": 1,
+  "cache_hits": 1,
+  "cache_created": 0,
   "missing": [],
   "files": [
     {
@@ -27,7 +27,7 @@
       "platform": "terra",
       "cache_path": "data/modis_lst/v2/gtnnwar-zhangye-20181023-a5d90c376e/2018/10/23/MOD11A1_20181023_LST_QA.tif",
       "artifact_path": "output/modis_lst/gtnnwar-zhangye-20181023-a5d90c376e/MOD11A1_20181023_LST_QA.tif",
-      "created": true,
+      "created": false,
       "details": {
         "path": "data/modis_lst/v2/gtnnwar-zhangye-20181023-a5d90c376e/2018/10/23/MOD11A1_20181023_LST_QA.tif",
         "size_bytes": 29390,
